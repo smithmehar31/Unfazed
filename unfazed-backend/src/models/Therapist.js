@@ -44,12 +44,22 @@ const therapistSchema = new mongoose.Schema(
       type: [String],
       default: [],
     },
+
+    // Therapist's local timezone
+    timezone: {
+      type: String,
+      default: "Asia/Kolkata",
+      trim: true,
+    },
   },
   {
     timestamps: true,
   }
 );
 
-const Therapist = mongoose.model("Therapist", therapistSchema);
+const Therapist = mongoose.model(
+  "Therapist",
+  therapistSchema
+);
 
 module.exports = Therapist;

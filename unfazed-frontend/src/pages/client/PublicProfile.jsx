@@ -1,266 +1,215 @@
 import { useEffect, useState } from "react";
-import { useParams } from "react-router-dom";
-
+import { useNavigate, useParams } from "react-router-dom";
 import axiosInstance from "../../api/axiosInstance";
 
 function PublicProfile() {
   const { slug } = useParams();
+  const navigate = useNavigate();
 
   const [therapist, setTherapist] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
   useEffect(() => {
-    const fetchTherapist = async () => {
-      try {
-        const response = await axiosInstance.get(
-          `/therapists/${slug}`
-        );
-
-        setTherapist(response.data.therapist);
-      } catch (error) {
-        console.error("Failed to load therapist profile:", error);
-
-        setError(
-          error.response?.data?.message ||
-            "Therapist profile not found"
-        );
-      } finally {
-        setLoading(false);
-      }
-    };
-
     fetchTherapist();
   }, [slug]);
 
+  async function fetchTherapist() {
+    try {
+      setLoading(true);
+      setError("");
+
+      const response = await axiosInstance.get(`/therapists/${slug}`);
+
+      if (response.data.success) {
+        setTherapist(response.data.therapist);
+      } else {
+        setError("Therapist profile not found.");
+      }
+    } catch (error) {
+      console.error("Public profile error:", error);
+
+      setError(
+        error.response?.data?.message ||
+          "Unable to load therapist profile."
+      );
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  function handleBooking() {
+    navigate(`/book/${slug}`);
+  }
+
   if (loading) {
     return (
-      <div style={styles.center}>
-        <div style={styles.loader}></div>
-        <p style={styles.loadingText}>
-          Loading therapist profile...
-        </p>
+      <div style={styles.page}>
+        <div style={styles.loadingCard}>
+          <p style={styles.loadingText}>Loading profile...</p>
+        </div>
       </div>
     );
   }
 
   if (error || !therapist) {
     return (
-      <div style={styles.center}>
+      <div style={styles.page}>
         <div style={styles.errorCard}>
-          <h1 style={styles.errorTitle}>Profile Not Found</h1>
+          <h2 style={styles.errorTitle}>Profile not found</h2>
+
           <p style={styles.errorText}>
             {error || "This therapist profile does not exist."}
           </p>
+
+          <button
+            type="button"
+            onClick={() => navigate("/")}
+            style={styles.primaryButton}
+          >
+            Go Home
+          </button>
         </div>
       </div>
     );
   }
 
-  const firstLetter =
-    therapist.name?.charAt(0).toUpperCase() || "T";
-
   return (
     <div style={styles.page}>
-      {/* Header */}
-      <header style={styles.header}>
-        <div style={styles.headerInner}>
-          <div style={styles.logo}>UNFAZED</div>
+      <div style={styles.container}>
+        <header style={styles.header}>
+          <div style={styles.logo}>Unfazed</div>
+        </header>
 
-          <div style={styles.headerRight}>
-            <span style={styles.headerBadge}>
-              Therapist Profile
-            </span>
+        <section style={styles.hero}>
+          <div style={styles.avatar}>
+            {therapist.name?.charAt(0)?.toUpperCase() || "T"}
           </div>
-        </div>
-      </header>
 
-      {/* Main */}
-      <main>
-        {/* Hero */}
-        <section style={styles.heroSection}>
-          <div style={styles.heroInner}>
-            <div style={styles.avatarLarge}>
-              {firstLetter}
-            </div>
+          <div style={styles.heroContent}>
+            <p style={styles.smallLabel}>THERAPIST</p>
 
-            <div style={styles.heroContent}>
-              <span style={styles.eyebrow}>
-                PROFESSIONAL THERAPIST
-              </span>
+            <h1 style={styles.name}>{therapist.name}</h1>
 
-              <h1 style={styles.name}>
-                {therapist.name}
-              </h1>
+            <p style={styles.heroBio}>
+              {therapist.bio ||
+                "Professional therapist providing a safe and supportive space for clients."}
+            </p>
 
-              <p style={styles.heroBio}>
-                {therapist.bio ||
-                  "Professional therapist dedicated to helping clients improve their wellbeing."}
-              </p>
+            <div style={styles.buttonRow}>
+              <button
+                type="button"
+                onClick={handleBooking}
+                style={styles.primaryButton}
+              >
+                Book a Session
+              </button>
 
-              <div style={styles.heroActions}>
-                <button style={styles.primaryButton}>
-                  Book a Session
-                </button>
-
-                <span style={styles.availableText}>
-                  Professional consultation
-                </span>
-              </div>
+              <button
+                type="button"
+                onClick={handleBooking}
+                style={styles.secondaryButton}
+              >
+                View Availability
+              </button>
             </div>
           </div>
         </section>
 
-        {/* Profile Content */}
-        <div style={styles.contentContainer}>
-          {/* About */}
-          <section style={styles.section}>
-            <div style={styles.sectionHeader}>
-              <span style={styles.sectionNumber}>01</span>
-              <h2 style={styles.sectionTitle}>About</h2>
-            </div>
+        <section style={styles.contentGrid}>
+          <div style={styles.mainColumn}>
+            <div style={styles.card}>
+              <p style={styles.sectionLabel}>ABOUT</p>
 
-            <div style={styles.aboutCard}>
-              <p style={styles.description}>
+              <h2 style={styles.sectionTitle}>About {therapist.name}</h2>
+
+              <p style={styles.bodyText}>
                 {therapist.bio ||
-                  "No information has been added yet."}
+                  "This therapist has not added an introduction yet."}
               </p>
             </div>
-          </section>
 
-          {/* Specializations */}
-          <section style={styles.section}>
-            <div style={styles.sectionHeader}>
-              <span style={styles.sectionNumber}>02</span>
+            <div style={styles.card}>
+              <p style={styles.sectionLabel}>SPECIALIZATIONS</p>
+
               <h2 style={styles.sectionTitle}>
-                Specializations
+                Areas of specialization
               </h2>
-            </div>
 
-            {therapist.specializations?.length > 0 ? (
-              <div style={styles.tagsGrid}>
-                {therapist.specializations.map((item) => (
-                  <div
-                    key={item}
-                    style={styles.tagCard}
-                  >
-                    <span style={styles.tagDot}></span>
-                    <span style={styles.tagText}>
+              {therapist.specializations?.length > 0 ? (
+                <div style={styles.tags}>
+                  {therapist.specializations.map((item, index) => (
+                    <span key={index} style={styles.tag}>
                       {item}
                     </span>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <p style={styles.muted}>
-                No specializations listed.
-              </p>
-            )}
-          </section>
-
-          {/* Languages */}
-          <section style={styles.section}>
-            <div style={styles.sectionHeader}>
-              <span style={styles.sectionNumber}>03</span>
-              <h2 style={styles.sectionTitle}>Languages</h2>
-            </div>
-
-            {therapist.languages?.length > 0 ? (
-              <div style={styles.tagsGrid}>
-                {therapist.languages.map((item) => (
-                  <div
-                    key={item}
-                    style={styles.tagCard}
-                  >
-                    <span style={styles.tagText}>
-                      {item}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <p style={styles.muted}>
-                No languages listed.
-              </p>
-            )}
-          </section>
-
-          {/* Services */}
-          <section style={styles.section}>
-            <div style={styles.sectionHeader}>
-              <span style={styles.sectionNumber}>04</span>
-              <h2 style={styles.sectionTitle}>Services</h2>
-            </div>
-
-            <div style={styles.serviceCard}>
-              <div style={styles.serviceInfo}>
-                <span style={styles.serviceLabel}>
-                  THERAPY
-                </span>
-
-                <h3 style={styles.serviceTitle}>
-                  Therapy Session
-                </h3>
-
-                <p style={styles.serviceDescription}>
-                  Book a professional therapy session with{" "}
-                  {therapist.name}.
+                  ))}
+                </div>
+              ) : (
+                <p style={styles.mutedText}>
+                  No specializations added yet.
                 </p>
+              )}
+            </div>
 
-                <div style={styles.serviceMeta}>
-                  <span>Professional Session</span>
-                  <span>•</span>
-                  <span>Online Booking</span>
+            <div style={styles.card}>
+              <p style={styles.sectionLabel}>LANGUAGES</p>
+
+              <h2 style={styles.sectionTitle}>Languages</h2>
+
+              {therapist.languages?.length > 0 ? (
+                <div style={styles.tags}>
+                  {therapist.languages.map((language, index) => (
+                    <span key={index} style={styles.languageTag}>
+                      {language}
+                    </span>
+                  ))}
+                </div>
+              ) : (
+                <p style={styles.mutedText}>
+                  No languages added yet.
+                </p>
+              )}
+            </div>
+          </div>
+
+          <aside style={styles.sideColumn}>
+            <div style={styles.serviceCard}>
+              <p style={styles.sectionLabel}>SERVICES</p>
+
+              <h2 style={styles.serviceTitle}>Therapy Session</h2>
+
+              <p style={styles.serviceDescription}>
+                Schedule a one-to-one session at a time that works for
+                you.
+              </p>
+
+              <div style={styles.serviceInfo}>
+                <div style={styles.infoRow}>
+                  <span>Session types</span>
+                  <strong>30 / 45 / 60 / 90 min</strong>
+                </div>
+
+                <div style={styles.infoRow}>
+                  <span>Booking</span>
+                  <strong>Instant confirmation</strong>
                 </div>
               </div>
 
-              <button style={styles.primaryButton}>
-                View Availability
+              <button
+                type="button"
+                onClick={handleBooking}
+                style={styles.fullButton}
+              >
+                Check Availability
               </button>
             </div>
-          </section>
+          </aside>
+        </section>
 
-          {/* CTA */}
-          <section style={styles.ctaSection}>
-            <div>
-              <span style={styles.ctaEyebrow}>
-                READY TO GET STARTED?
-              </span>
-
-              <h2 style={styles.ctaTitle}>
-                Take the next step toward better wellbeing.
-              </h2>
-            </div>
-
-            <button style={styles.ctaButton}>
-              Book a Session
-            </button>
-          </section>
-        </div>
-      </main>
-
-      {/* Footer */}
-      <footer style={styles.footer}>
-        <div style={styles.footerInner}>
-          <div>
-            <div style={styles.footerBrand}>UNFAZED</div>
-
-            <p style={styles.footerText}>
-              Practice management made simple.
-            </p>
-          </div>
-
-          <div style={styles.footerRight}>
-            <p style={styles.footerPowered}>
-              Powered by <strong>Unfazed</strong>
-            </p>
-
-            <p style={styles.footerSlug}>
-              unfazed.in/{therapist.slug}
-            </p>
-          </div>
-        </div>
-      </footer>
+        <footer style={styles.footer}>
+          <p>Powered by Unfazed</p>
+        </footer>
+      </div>
     </div>
   );
 }
@@ -268,379 +217,278 @@ function PublicProfile() {
 const styles = {
   page: {
     minHeight: "100vh",
-    background: "#f8fafc",
-    color: "#0f172a",
-    fontFamily:
-      "Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
+    background: "#f5f7fb",
+    color: "#172033",
   },
 
-  center: {
-    minHeight: "100vh",
-    display: "flex",
-    flexDirection: "column",
-    alignItems: "center",
-    justifyContent: "center",
-    padding: "24px",
-    background: "#f8fafc",
-  },
-
-  loader: {
-    width: "34px",
-    height: "34px",
-    border: "4px solid #e2e8f0",
-    borderTop: "4px solid #0f172a",
-    borderRadius: "50%",
-    marginBottom: "16px",
-  },
-
-  loadingText: {
-    color: "#64748b",
-    fontSize: "15px",
-  },
-
-  errorCard: {
-    maxWidth: "500px",
-    width: "100%",
-    background: "#ffffff",
-    border: "1px solid #e2e8f0",
-    borderRadius: "18px",
-    padding: "40px",
-    textAlign: "center",
-    boxSizing: "border-box",
-  },
-
-  errorTitle: {
-    margin: "0 0 10px",
-    color: "#0f172a",
-    fontSize: "30px",
-  },
-
-  errorText: {
-    margin: 0,
-    color: "#64748b",
-    lineHeight: "1.6",
+  container: {
+    maxWidth: "1080px",
+    margin: "0 auto",
+    padding: "0 20px 50px",
   },
 
   header: {
-    background: "#ffffff",
-    borderBottom: "1px solid #e2e8f0",
-  },
-
-  headerInner: {
-    maxWidth: "1100px",
-    margin: "0 auto",
-    padding: "20px 24px",
+    height: "78px",
     display: "flex",
-    justifyContent: "space-between",
     alignItems: "center",
-    boxSizing: "border-box",
+    borderBottom: "1px solid #e6eaf0",
   },
 
   logo: {
-    color: "#0f172a",
-    fontSize: "16px",
+    fontSize: "22px",
     fontWeight: "800",
-    letterSpacing: "3px",
+    color: "#4d63d2",
+    letterSpacing: "-0.5px",
   },
 
-  headerRight: {
-    display: "flex",
-    alignItems: "center",
-  },
-
-  headerBadge: {
-    color: "#475569",
-    background: "#f1f5f9",
-    padding: "8px 12px",
-    borderRadius: "999px",
-    fontSize: "12px",
-    fontWeight: "600",
-  },
-
-  heroSection: {
+  hero: {
+    marginTop: "35px",
     background: "#ffffff",
-    borderBottom: "1px solid #e2e8f0",
+    border: "1px solid #e3e8f0",
+    borderRadius: "22px",
+    padding: "38px",
+    display: "flex",
+    gap: "25px",
+    alignItems: "center",
+    boxShadow: "0 12px 35px rgba(23, 32, 51, 0.06)",
   },
 
-  heroInner: {
-    maxWidth: "1100px",
-    margin: "0 auto",
-    padding: "80px 24px",
+  avatar: {
+    width: "92px",
+    height: "92px",
+    borderRadius: "25px",
+    background: "#e9edff",
+    color: "#4d63d2",
     display: "flex",
-    alignItems: "center",
-    gap: "42px",
-    boxSizing: "border-box",
-  },
-
-  avatarLarge: {
-    width: "130px",
-    height: "130px",
-    borderRadius: "50%",
-    background: "#e2e8f0",
-    display: "flex",
-    alignItems: "center",
     justifyContent: "center",
-    color: "#0f172a",
-    fontSize: "52px",
-    fontWeight: "700",
+    alignItems: "center",
+    fontSize: "36px",
+    fontWeight: "800",
     flexShrink: 0,
   },
 
   heroContent: {
-    maxWidth: "720px",
+    flex: 1,
   },
 
-  eyebrow: {
-    color: "#64748b",
-    fontSize: "12px",
-    fontWeight: "700",
-    letterSpacing: "2px",
+  smallLabel: {
+    margin: "0 0 7px",
+    color: "#738097",
+    fontSize: "11px",
+    fontWeight: "800",
+    letterSpacing: "1.5px",
   },
 
   name: {
-    margin: "10px 0 16px",
-    color: "#0f172a",
-    fontSize: "48px",
-    lineHeight: "1.08",
-    fontWeight: "800",
+    margin: "0",
+    fontSize: "36px",
+    lineHeight: "1.15",
+    color: "#172033",
   },
 
   heroBio: {
-    margin: "0 0 26px",
-    color: "#475569",
-    fontSize: "18px",
-    lineHeight: "1.75",
+    margin: "12px 0 0",
+    color: "#667085",
+    fontSize: "15px",
+    lineHeight: "1.65",
+    maxWidth: "720px",
   },
 
-  heroActions: {
+  buttonRow: {
     display: "flex",
-    alignItems: "center",
-    gap: "16px",
+    gap: "12px",
+    marginTop: "22px",
     flexWrap: "wrap",
   },
 
   primaryButton: {
     border: "none",
-    background: "#0f172a",
+    borderRadius: "11px",
+    background: "#4d63d2",
     color: "#ffffff",
-    padding: "12px 20px",
-    borderRadius: "9px",
+    padding: "13px 20px",
     fontSize: "14px",
-    fontWeight: "600",
+    fontWeight: "700",
     cursor: "pointer",
   },
 
-  availableText: {
-    color: "#64748b",
-    fontSize: "13px",
-  },
-
-  contentContainer: {
-    maxWidth: "1100px",
-    margin: "0 auto",
-    padding: "45px 24px",
-    boxSizing: "border-box",
-  },
-
-  section: {
-    marginBottom: "48px",
-  },
-
-  sectionHeader: {
-    display: "flex",
-    alignItems: "center",
-    gap: "12px",
-    marginBottom: "18px",
-  },
-
-  sectionNumber: {
-    color: "#94a3b8",
-    fontSize: "12px",
+  secondaryButton: {
+    border: "1px solid #d7deea",
+    borderRadius: "11px",
+    background: "#ffffff",
+    color: "#354158",
+    padding: "12px 20px",
+    fontSize: "14px",
     fontWeight: "700",
-    letterSpacing: "1px",
+    cursor: "pointer",
+  },
+
+  contentGrid: {
+    display: "grid",
+    gridTemplateColumns: "1.4fr 0.8fr",
+    gap: "22px",
+    marginTop: "22px",
+    alignItems: "start",
+  },
+
+  mainColumn: {
+    display: "flex",
+    flexDirection: "column",
+    gap: "22px",
+  },
+
+  sideColumn: {
+    position: "sticky",
+    top: "20px",
+  },
+
+  card: {
+    background: "#ffffff",
+    border: "1px solid #e3e8f0",
+    borderRadius: "18px",
+    padding: "27px",
+    boxShadow: "0 8px 24px rgba(23, 32, 51, 0.04)",
+  },
+
+  sectionLabel: {
+    margin: "0 0 6px",
+    color: "#768197",
+    fontSize: "11px",
+    fontWeight: "800",
+    letterSpacing: "1.3px",
   },
 
   sectionTitle: {
-    margin: 0,
-    color: "#0f172a",
-    fontSize: "27px",
-    fontWeight: "750",
+    margin: "0 0 14px",
+    fontSize: "21px",
+    color: "#202b3f",
   },
 
-  aboutCard: {
-    background: "#ffffff",
-    border: "1px solid #e2e8f0",
-    borderRadius: "16px",
-    padding: "24px",
+  bodyText: {
+    margin: "0",
+    color: "#657084",
+    fontSize: "14px",
+    lineHeight: "1.75",
   },
 
-  description: {
-    margin: 0,
-    color: "#475569",
-    lineHeight: "1.8",
-    fontSize: "16px",
-  },
-
-  tagsGrid: {
+  tags: {
     display: "flex",
     flexWrap: "wrap",
-    gap: "12px",
-  },
-
-  tagCard: {
-    background: "#ffffff",
-    border: "1px solid #e2e8f0",
-    borderRadius: "12px",
-    padding: "12px 16px",
-    display: "flex",
-    alignItems: "center",
     gap: "9px",
   },
 
-  tagDot: {
-    width: "7px",
-    height: "7px",
-    borderRadius: "50%",
-    background: "#0f172a",
+  tag: {
+    background: "#eef1ff",
+    color: "#4d5fbe",
+    borderRadius: "30px",
+    padding: "8px 12px",
+    fontSize: "13px",
+    fontWeight: "600",
   },
 
-  tagText: {
-    color: "#334155",
+  languageTag: {
+    background: "#f1f4f8",
+    color: "#566176",
+    borderRadius: "30px",
+    padding: "8px 12px",
+    fontSize: "13px",
+    fontWeight: "600",
+  },
+
+  mutedText: {
+    margin: "0",
+    color: "#8992a1",
     fontSize: "14px",
-    fontWeight: "500",
-  },
-
-  muted: {
-    margin: 0,
-    color: "#64748b",
-    fontSize: "15px",
   },
 
   serviceCard: {
     background: "#ffffff",
-    border: "1px solid #e2e8f0",
-    borderRadius: "16px",
-    padding: "26px",
-    display: "flex",
-    justifyContent: "space-between",
-    alignItems: "center",
-    gap: "24px",
-    boxSizing: "border-box",
-  },
-
-  serviceInfo: {
-    maxWidth: "700px",
-  },
-
-  serviceLabel: {
-    color: "#64748b",
-    fontSize: "11px",
-    fontWeight: "700",
-    letterSpacing: "1.5px",
+    border: "1px solid #e3e8f0",
+    borderRadius: "18px",
+    padding: "27px",
+    boxShadow: "0 8px 24px rgba(23, 32, 51, 0.04)",
   },
 
   serviceTitle: {
-    margin: "8px 0 8px",
-    color: "#0f172a",
+    margin: "0 0 8px",
     fontSize: "21px",
+    color: "#202b3f",
   },
 
   serviceDescription: {
-    margin: "0 0 12px",
-    color: "#64748b",
-    lineHeight: "1.6",
+    margin: "0",
+    color: "#687387",
+    fontSize: "14px",
+    lineHeight: "1.65",
   },
 
-  serviceMeta: {
-    display: "flex",
-    gap: "8px",
-    flexWrap: "wrap",
-    color: "#94a3b8",
-    fontSize: "12px",
+  serviceInfo: {
+    marginTop: "20px",
+    borderTop: "1px solid #edf0f4",
   },
 
-  ctaSection: {
-    marginTop: "10px",
-    background: "#0f172a",
-    color: "#ffffff",
-    borderRadius: "18px",
-    padding: "34px",
+  infoRow: {
     display: "flex",
     justifyContent: "space-between",
-    alignItems: "center",
-    gap: "24px",
-    boxSizing: "border-box",
+    gap: "15px",
+    padding: "12px 0",
+    borderBottom: "1px solid #edf0f4",
+    fontSize: "12px",
+    color: "#707b8f",
   },
 
-  ctaEyebrow: {
-    color: "#cbd5e1",
-    fontSize: "11px",
-    fontWeight: "700",
-    letterSpacing: "1.5px",
-  },
-
-  ctaTitle: {
-    margin: "8px 0 0",
-    maxWidth: "620px",
-    color: "#ffffff",
-    fontSize: "24px",
-    lineHeight: "1.4",
-  },
-
-  ctaButton: {
+  fullButton: {
+    width: "100%",
     border: "none",
-    background: "#ffffff",
-    color: "#0f172a",
-    padding: "12px 20px",
-    borderRadius: "9px",
+    borderRadius: "11px",
+    background: "#4d63d2",
+    color: "#ffffff",
+    padding: "13px",
+    marginTop: "20px",
+    fontSize: "14px",
     fontWeight: "700",
     cursor: "pointer",
-    flexShrink: 0,
+  },
+
+  loadingCard: {
+    maxWidth: "500px",
+    margin: "100px auto",
+    padding: "35px",
+    background: "#ffffff",
+    border: "1px solid #e3e8f0",
+    borderRadius: "18px",
+    textAlign: "center",
+  },
+
+  loadingText: {
+    margin: "0",
+    color: "#687387",
+  },
+
+  errorCard: {
+    maxWidth: "500px",
+    margin: "100px auto",
+    padding: "35px",
+    background: "#ffffff",
+    border: "1px solid #e3e8f0",
+    borderRadius: "18px",
+    textAlign: "center",
+  },
+
+  errorTitle: {
+    margin: "0 0 10px",
+    color: "#202b3f",
+  },
+
+  errorText: {
+    margin: "0 0 20px",
+    color: "#6d7789",
   },
 
   footer: {
-    marginTop: "20px",
-    background: "#ffffff",
-    borderTop: "1px solid #e2e8f0",
-  },
-
-  footerInner: {
-    maxWidth: "1100px",
-    margin: "0 auto",
-    padding: "28px 24px",
-    display: "flex",
-    justifyContent: "space-between",
-    alignItems: "center",
-    gap: "24px",
-    boxSizing: "border-box",
-  },
-
-  footerBrand: {
-    color: "#0f172a",
-    fontSize: "14px",
-    fontWeight: "800",
-    letterSpacing: "2px",
-  },
-
-  footerText: {
-    margin: "6px 0 0",
-    color: "#64748b",
-    fontSize: "13px",
-  },
-
-  footerRight: {
-    textAlign: "right",
-  },
-
-  footerPowered: {
-    margin: 0,
-    color: "#64748b",
-    fontSize: "13px",
-  },
-
-  footerSlug: {
-    margin: "5px 0 0",
-    color: "#94a3b8",
+    padding: "35px 0 0",
+    textAlign: "center",
+    color: "#8a93a2",
     fontSize: "12px",
   },
 };
