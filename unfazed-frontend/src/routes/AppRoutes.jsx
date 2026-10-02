@@ -11,6 +11,7 @@ import Clients from "../pages/therapist/Clients";
 import PublicProfile from "../pages/client/PublicProfile";
 import BookSession from "../pages/client/BookSession";
 import ClientPortal from "../pages/client/ClientPortal";
+import Payment from "../pages/client/Payment";
 
 import ProtectedRoute from "./ProtectedRoute";
 
@@ -63,6 +64,11 @@ function AppRoutes() {
         <Route
           path="/portal"
           element={<ClientPortal />}
+        />
+
+        <Route
+          path="/payment"
+          element={<Payment />}
         />
 
         <Route
