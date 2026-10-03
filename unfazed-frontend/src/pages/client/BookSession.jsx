@@ -7,7 +7,6 @@ function BookSession() {
   const navigate = useNavigate();
 
   const [therapist, setTherapist] = useState(null);
-
   const [date, setDate] = useState(getTodayDate());
   const [duration, setDuration] = useState(60);
   const [slots, setSlots] = useState([]);
@@ -25,11 +24,11 @@ function BookSession() {
   const [success, setSuccess] = useState("");
 
   const clientTimezone =
-    Intl.DateTimeFormat().resolvedOptions().timeZone || "Asia/Kolkata";
+    Intl.DateTimeFormat().resolvedOptions().timeZone ||
+    "Asia/Kolkata";
 
   function getTodayDate() {
     const today = new Date();
-
     const year = today.getFullYear();
     const month = String(today.getMonth() + 1).padStart(2, "0");
     const day = String(today.getDate()).padStart(2, "0");
@@ -37,39 +36,28 @@ function BookSession() {
     return `${year}-${month}-${day}`;
   }
 
-  function formatSlotTime(dateValue) {
-    if (!dateValue) {
-      return "";
-    }
+  function formatSlotTime(value) {
+    if (!value) return "";
 
-    try {
-      return new Intl.DateTimeFormat(undefined, {
-        hour: "numeric",
-        minute: "2-digit",
-        hour12: true,
-      }).format(new Date(dateValue));
-    } catch (error) {
-      return dateValue;
-    }
+    return new Intl.DateTimeFormat(undefined, {
+      hour: "numeric",
+      minute: "2-digit",
+      hour12: true,
+    }).format(new Date(value));
   }
 
-  function formatDateForDisplay(dateValue) {
-    if (!dateValue) {
-      return "";
-    }
+  function formatDate(value) {
+    if (!value) return "";
 
-    try {
-      const selectedDate = new Date(`${dateValue}T00:00:00`);
-
-      return selectedDate.toLocaleDateString(undefined, {
+    return new Date(`${value}T00:00:00`).toLocaleDateString(
+      undefined,
+      {
         weekday: "long",
         day: "numeric",
         month: "long",
         year: "numeric",
-      });
-    } catch (error) {
-      return dateValue;
-    }
+      }
+    );
   }
 
   useEffect(() => {
@@ -87,7 +75,9 @@ function BookSession() {
       setLoadingTherapist(true);
       setError("");
 
-      const response = await axiosInstance.get(`/therapists/${slug}`);
+      const response = await axiosInstance.get(
+        `/therapists/${slug}`
+      );
 
       if (response.data.success) {
         setTherapist(response.data.therapist);
@@ -95,7 +85,7 @@ function BookSession() {
         setError("Therapist profile could not be loaded.");
       }
     } catch (error) {
-      console.error("Therapist fetch error:", error);
+      console.error(error);
 
       setError(
         error.response?.data?.message ||
@@ -130,7 +120,7 @@ function BookSession() {
         setSlotError("No available slots found.");
       }
     } catch (error) {
-      console.error("Slot fetch error:", error);
+      console.error(error);
 
       setSlotError(
         error.response?.data?.message ||
@@ -165,23 +155,22 @@ function BookSession() {
     try {
       setBooking(true);
 
-      const bookingData = {
-        date,
-        start_at: selectedSlot.start_at,
-        duration_minutes: duration,
-        client_name: clientName.trim(),
-        client_email: clientEmail.trim().toLowerCase(),
-        client_timezone: clientTimezone,
-      };
-
       const response = await axiosInstance.post(
         `/scheduling/${slug}/book`,
-        bookingData
+        {
+          date,
+          start_at: selectedSlot.start_at,
+          duration_minutes: duration,
+          client_name: clientName.trim(),
+          client_email: clientEmail.trim().toLowerCase(),
+          client_timezone: clientTimezone,
+        }
       );
 
       if (response.data.success) {
         setSuccess(
-          response.data.message || "Session booked successfully."
+          response.data.message ||
+            "Session booked successfully."
         );
 
         setClientName("");
@@ -191,17 +180,17 @@ function BookSession() {
         await fetchAvailableSlots();
       } else {
         setError(
-          response.data.message || "Unable to book this session."
+          response.data.message ||
+            "Unable to book this session."
         );
       }
     } catch (error) {
-      console.error("Booking error:", error);
+      console.error(error);
 
       if (error.response?.status === 409) {
         setError(
           "This slot was just booked by someone else. Please select another slot."
         );
-
         await fetchAvailableSlots();
       } else {
         setError(
@@ -216,748 +205,806 @@ function BookSession() {
 
   if (loadingTherapist) {
     return (
-      <div style={styles.page}>
-        <div style={styles.loadingCard}>
-          <p style={styles.loadingText}>Loading therapist profile...</p>
+      <>
+        <style>{css}</style>
+
+        <div className="booking-page">
+          <div className="state-card">
+            <div className="state-icon">U</div>
+            <h2>Loading booking</h2>
+            <p>Preparing therapist information...</p>
+          </div>
         </div>
-      </div>
+      </>
     );
   }
 
   if (error && !therapist) {
     return (
-      <div style={styles.page}>
-        <div style={styles.errorCard}>
-          <h2 style={styles.errorTitle}>Unable to open booking</h2>
+      <>
+        <style>{css}</style>
 
-          <p style={styles.errorText}>{error}</p>
+        <div className="booking-page">
+          <div className="state-card">
+            <div className="error-icon">!</div>
+            <h2>Unable to open booking</h2>
+            <p>{error}</p>
 
-          <button
-            type="button"
-            onClick={() => navigate(`/${slug}`)}
-            style={styles.secondaryButton}
-          >
-            Back to Profile
-          </button>
+            <button
+              className="primary-btn"
+              onClick={() => navigate(`/${slug}`)}
+            >
+              Back to Profile
+            </button>
+          </div>
         </div>
-      </div>
+      </>
     );
   }
 
   return (
-    <div style={styles.page}>
-      <div style={styles.container}>
-        <button
-          type="button"
-          onClick={() => navigate(`/${slug}`)}
-          style={styles.backButton}
-        >
-          ← Back to Profile
-        </button>
+    <>
+      <style>{css}</style>
 
-        <div style={styles.headerCard}>
-          <div style={styles.avatar}>
-            {therapist?.name?.charAt(0)?.toUpperCase() || "T"}
-          </div>
+      <div className="booking-page">
+        <div className="booking-shell">
+          <button
+            className="back-link"
+            onClick={() => navigate(`/${slug}`)}
+          >
+            ← Back to profile
+          </button>
 
-          <div>
-            <p style={styles.smallLabel}>BOOK A SESSION</p>
-
-            <h1 style={styles.title}>
-              Book a session with {therapist?.name}
-            </h1>
-
-            <p style={styles.subtitle}>
-              Choose a date and available time that works for you.
-            </p>
-          </div>
-        </div>
-
-        {success && (
-          <div style={styles.successCard}>
-            <div style={styles.successIcon}>✓</div>
+          <header className="booking-hero">
+            <div className="avatar">
+              {therapist?.name?.charAt(0)?.toUpperCase() || "T"}
+            </div>
 
             <div>
-              <h3 style={styles.successTitle}>Booking confirmed</h3>
-
-              <p style={styles.successText}>{success}</p>
-
-              <p style={styles.successExtra}>
-                Your selected slot has been confirmed successfully.
+              <div className="eyebrow">BOOK A SESSION</div>
+              <h1>
+                Book a session with {therapist?.name}
+              </h1>
+              <p>
+                Choose a date, session length and available time.
               </p>
             </div>
-          </div>
-        )}
+          </header>
 
-        {error && therapist && (
-          <div style={styles.alertCard}>
-            <strong>Booking error:</strong> {error}
-          </div>
-        )}
-
-        <div style={styles.bookingGrid}>
-          <div style={styles.leftColumn}>
-            <div style={styles.card}>
-              <div style={styles.cardHeader}>
-                <div>
-                  <p style={styles.cardStep}>STEP 1</p>
-                  <h2 style={styles.cardTitle}>Choose date</h2>
-                </div>
-              </div>
-
-              <input
-                type="date"
-                value={date}
-                min={getTodayDate()}
-                onChange={(event) => {
-                  setDate(event.target.value);
-                  setSuccess("");
-                  setError("");
-                }}
-                style={styles.dateInput}
-              />
-
-              <p style={styles.dateInfo}>
-                {formatDateForDisplay(date)}
-              </p>
+          {success && (
+            <div className="notice success">
+              <strong>Booking confirmed</strong>
+              <span>{success}</span>
             </div>
+          )}
 
-            <div style={styles.card}>
-              <div style={styles.cardHeader}>
-                <div>
-                  <p style={styles.cardStep}>STEP 2</p>
-                  <h2 style={styles.cardTitle}>Session duration</h2>
-                </div>
-              </div>
-
-              <div style={styles.durationGrid}>
-                {[30, 45, 60, 90].map((minutes) => (
-                  <button
-                    key={minutes}
-                    type="button"
-                    onClick={() => {
-                      setDuration(minutes);
-                      setSelectedSlot(null);
-                      setSuccess("");
-                      setError("");
-                    }}
-                    style={{
-                      ...styles.durationButton,
-                      ...(duration === minutes
-                        ? styles.durationButtonActive
-                        : {}),
-                    }}
-                  >
-                    {minutes} min
-                  </button>
-                ))}
-              </div>
+          {error && (
+            <div className="notice error">
+              <strong>Booking issue</strong>
+              <span>{error}</span>
             </div>
+          )}
 
-            <div style={styles.card}>
-              <div style={styles.cardHeader}>
-                <div>
-                  <p style={styles.cardStep}>STEP 3</p>
-                  <h2 style={styles.cardTitle}>Choose time</h2>
-                </div>
-
-                <span style={styles.timezoneBadge}>
-                  {clientTimezone}
-                </span>
-              </div>
-
-              <p style={styles.timezoneText}>
-                Times are shown in your local timezone.
-              </p>
-
-              {loadingSlots ? (
-                <div style={styles.slotLoading}>
-                  Loading available slots...
-                </div>
-              ) : slotError ? (
-                <div style={styles.emptyState}>
-                  <div style={styles.emptyIcon}>×</div>
-
-                  <h3 style={styles.emptyTitle}>
-                    Unable to load slots
-                  </h3>
-
-                  <p style={styles.emptyText}>{slotError}</p>
-
-                  <button
-                    type="button"
-                    onClick={fetchAvailableSlots}
-                    style={styles.retryButton}
-                  >
-                    Try Again
-                  </button>
-                </div>
-              ) : slots.length === 0 ? (
-                <div style={styles.emptyState}>
-                  <div style={styles.emptyIcon}>—</div>
-
-                  <h3 style={styles.emptyTitle}>
-                    No slots available
-                  </h3>
-
-                  <p style={styles.emptyText}>
-                    There are no open {duration}-minute sessions for
-                    this date. Please try another date.
-                  </p>
-                </div>
-              ) : (
-                <div style={styles.slotsGrid}>
-                  {slots.map((slot) => {
-                    const isSelected =
-                      selectedSlot?.start_at === slot.start_at;
-
-                    return (
-                      <button
-                        key={`${slot.start_at}-${slot.end_at}`}
-                        type="button"
-                        onClick={() => {
-                          setSelectedSlot(slot);
-                          setSuccess("");
-                          setError("");
-                        }}
-                        style={{
-                          ...styles.slotButton,
-                          ...(isSelected
-                            ? styles.slotButtonActive
-                            : {}),
-                        }}
-                      >
-                        {formatSlotTime(slot.start_at)}
-                      </button>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
-          </div>
-
-          <div style={styles.rightColumn}>
-            <div style={styles.card}>
-              <div style={styles.cardHeader}>
-                <div>
-                  <p style={styles.cardStep}>STEP 4</p>
-                  <h2 style={styles.cardTitle}>Your details</h2>
-                </div>
-              </div>
-
-              <form onSubmit={handleBooking}>
-                <div style={styles.formGroup}>
-                  <label style={styles.label}>Full Name</label>
-
-                  <input
-                    type="text"
-                    value={clientName}
-                    onChange={(event) =>
-                      setClientName(event.target.value)
-                    }
-                    placeholder="Enter your full name"
-                    style={styles.input}
-                  />
-                </div>
-
-                <div style={styles.formGroup}>
-                  <label style={styles.label}>Email Address</label>
-
-                  <input
-                    type="email"
-                    value={clientEmail}
-                    onChange={(event) =>
-                      setClientEmail(event.target.value)
-                    }
-                    placeholder="Enter your email"
-                    style={styles.input}
-                  />
-                </div>
-
-                <div style={styles.summaryBox}>
-                  <p style={styles.summaryHeading}>Booking summary</p>
-
-                  <div style={styles.summaryRow}>
-                    <span>Date</span>
-                    <strong>{date}</strong>
-                  </div>
-
-                  <div style={styles.summaryRow}>
-                    <span>Duration</span>
-                    <strong>{duration} minutes</strong>
-                  </div>
-
-                  <div style={styles.summaryRow}>
-                    <span>Timezone</span>
-                    <strong>{clientTimezone}</strong>
-                  </div>
-
-                  <div style={styles.summaryRow}>
-                    <span>Selected time</span>
-                    <strong>
-                      {selectedSlot
-                        ? formatSlotTime(selectedSlot.start_at)
-                        : "Not selected"}
-                    </strong>
+          <div className="booking-layout">
+            <main className="main-column">
+              <section className="card">
+                <div className="card-head">
+                  <div className="step">01</div>
+                  <div>
+                    <div className="eyebrow">DATE</div>
+                    <h2>Choose a date</h2>
+                    <p>
+                      Pick a day that works for your session.
+                    </p>
                   </div>
                 </div>
 
-                <button
-                  type="submit"
-                  disabled={!selectedSlot || booking}
-                  style={{
-                    ...styles.bookButton,
-                    ...((!selectedSlot || booking)
-                      ? styles.bookButtonDisabled
-                      : {}),
+                <input
+                  className="date-input"
+                  type="date"
+                  value={date}
+                  min={getTodayDate()}
+                  onChange={(event) => {
+                    setDate(event.target.value);
+                    setError("");
+                    setSuccess("");
                   }}
-                >
-                  {booking ? "Confirming..." : "Confirm Booking"}
-                </button>
+                />
 
-                <p style={styles.disclaimer}>
-                  Your booking will be confirmed instantly after the
-                  request is successfully completed.
-                </p>
-              </form>
-            </div>
+                <div className="selected-date">
+                  {formatDate(date)}
+                </div>
+              </section>
+
+              <section className="card">
+                <div className="card-head">
+                  <div className="step">02</div>
+                  <div>
+                    <div className="eyebrow">DURATION</div>
+                    <h2>Choose session length</h2>
+                    <p>
+                      Select the duration you prefer.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="duration-grid">
+                  {[30, 45, 60, 90].map((minutes) => (
+                    <button
+                      key={minutes}
+                      type="button"
+                      className={`duration-btn ${
+                        duration === minutes ? "active" : ""
+                      }`}
+                      onClick={() => {
+                        setDuration(minutes);
+                        setSelectedSlot(null);
+                        setError("");
+                        setSuccess("");
+                      }}
+                    >
+                      <strong>{minutes}</strong>
+                      <span>minutes</span>
+                    </button>
+                  ))}
+                </div>
+              </section>
+
+              <section className="card">
+                <div className="card-head">
+                  <div className="step">03</div>
+                  <div>
+                    <div className="eyebrow">AVAILABILITY</div>
+                    <h2>Choose a time</h2>
+                    <p>
+                      Times are displayed in your local timezone.
+                    </p>
+                  </div>
+
+                  <span className="timezone">
+                    {clientTimezone}
+                  </span>
+                </div>
+
+                {loadingSlots ? (
+                  <div className="slot-state">
+                    <div className="state-mini">◷</div>
+                    <strong>Finding available times</strong>
+                    <span>Please wait...</span>
+                  </div>
+                ) : slotError ? (
+                  <div className="slot-state">
+                    <div className="state-mini">!</div>
+                    <strong>Unable to load times</strong>
+                    <span>{slotError}</span>
+
+                    <button
+                      className="secondary-btn"
+                      onClick={fetchAvailableSlots}
+                    >
+                      Try again
+                    </button>
+                  </div>
+                ) : slots.length === 0 ? (
+                  <div className="slot-state">
+                    <div className="state-mini">—</div>
+                    <strong>No slots available</strong>
+                    <span>
+                      There are no open {duration}-minute sessions
+                      for this date. Try another date.
+                    </span>
+                  </div>
+                ) : (
+                  <div className="slots-grid">
+                    {slots.map((slot) => {
+                      const selected =
+                        selectedSlot?.start_at ===
+                        slot.start_at;
+
+                      return (
+                        <button
+                          key={`${slot.start_at}-${slot.end_at}`}
+                          type="button"
+                          className={`slot-btn ${
+                            selected ? "active" : ""
+                          }`}
+                          onClick={() => {
+                            setSelectedSlot(slot);
+                            setError("");
+                            setSuccess("");
+                          }}
+                        >
+                          {formatSlotTime(slot.start_at)}
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+              </section>
+            </main>
+
+            <aside className="side-column">
+              <section className="card details-card">
+                <div className="card-head">
+                  <div className="step">04</div>
+                  <div>
+                    <div className="eyebrow">YOUR DETAILS</div>
+                    <h2>Complete booking</h2>
+                    <p>
+                      Enter your contact information.
+                    </p>
+                  </div>
+                </div>
+
+                <form onSubmit={handleBooking}>
+                  <label>
+                    Full name
+                    <input
+                      value={clientName}
+                      onChange={(event) =>
+                        setClientName(event.target.value)
+                      }
+                      placeholder="Your full name"
+                    />
+                  </label>
+
+                  <label>
+                    Email address
+                    <input
+                      type="email"
+                      value={clientEmail}
+                      onChange={(event) =>
+                        setClientEmail(event.target.value)
+                      }
+                      placeholder="you@example.com"
+                    />
+                  </label>
+
+                  <div className="summary">
+                    <div className="summary-title">
+                      Booking summary
+                    </div>
+
+                    <div>
+                      <span>Date</span>
+                      <strong>{formatDate(date)}</strong>
+                    </div>
+
+                    <div>
+                      <span>Duration</span>
+                      <strong>{duration} minutes</strong>
+                    </div>
+
+                    <div>
+                      <span>Time</span>
+                      <strong>
+                        {selectedSlot
+                          ? formatSlotTime(
+                              selectedSlot.start_at
+                            )
+                          : "Not selected"}
+                      </strong>
+                    </div>
+
+                    <div>
+                      <span>Timezone</span>
+                      <strong>{clientTimezone}</strong>
+                    </div>
+                  </div>
+
+                  <button
+                    className="confirm-btn"
+                    type="submit"
+                    disabled={
+                      !selectedSlot || booking
+                    }
+                  >
+                    {booking
+                      ? "Confirming..."
+                      : "Confirm booking"}
+                  </button>
+
+                  <p className="helper">
+                    Your booking will be confirmed after the request
+                    is successfully completed.
+                  </p>
+                </form>
+              </section>
+            </aside>
           </div>
+
+          <footer>
+            <span>Unfazed</span>
+            <span>Secure therapist booking</span>
+          </footer>
         </div>
       </div>
-    </div>
+    </>
   );
 }
 
-const styles = {
-  page: {
-    minHeight: "100vh",
-    background: "#f4f7fb",
-    padding: "32px 18px 60px",
-    boxSizing: "border-box",
-    color: "#172033",
-  },
+const css = `
+  .booking-page {
+    min-height: 100vh;
+    background: #f4f6fa;
+    color: #192338;
+    padding: 22px;
+    font-family: Inter, system-ui, -apple-system,
+      BlinkMacSystemFont, "Segoe UI", sans-serif;
+  }
 
-  container: {
-    maxWidth: "1100px",
-    margin: "0 auto",
-  },
+  .booking-page * {
+    box-sizing: border-box;
+  }
 
-  backButton: {
-    border: "none",
-    background: "transparent",
-    color: "#4d63d2",
-    fontSize: "15px",
-    fontWeight: "600",
-    cursor: "pointer",
-    padding: "0",
-    marginBottom: "20px",
-  },
+  .booking-shell {
+    max-width: 1080px;
+    margin: 0 auto;
+  }
 
-  headerCard: {
-    background: "#ffffff",
-    border: "1px solid #e3e8f0",
-    borderRadius: "20px",
-    padding: "28px",
-    display: "flex",
-    alignItems: "center",
-    gap: "18px",
-    boxShadow: "0 10px 30px rgba(23, 32, 51, 0.06)",
-    marginBottom: "20px",
-  },
+  .back-link {
+    border: 0;
+    background: transparent;
+    padding: 6px 0;
+    margin-bottom: 14px;
+    color: #4d63d2;
+    font-size: 11px;
+    font-weight: 800;
+    cursor: pointer;
+  }
 
-  avatar: {
-    width: "62px",
-    height: "62px",
-    borderRadius: "18px",
-    background: "#e9edff",
-    color: "#4d63d2",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    fontSize: "25px",
-    fontWeight: "700",
-    flexShrink: 0,
-  },
+  .booking-hero {
+    display: flex;
+    align-items: center;
+    gap: 17px;
+    padding: 24px;
+    border-radius: 20px;
+    background: linear-gradient(135deg,#243670,#5368d7);
+    box-shadow: 0 12px 28px rgba(43,57,125,.13);
+  }
 
-  smallLabel: {
-    margin: "0 0 6px",
-    fontSize: "11px",
-    fontWeight: "800",
-    letterSpacing: "1.4px",
-    color: "#6e7a90",
-  },
+  .avatar {
+    width: 62px;
+    height: 62px;
+    display: grid;
+    place-items: center;
+    flex-shrink: 0;
+    border-radius: 17px;
+    background: rgba(255,255,255,.14);
+    border: 1px solid rgba(255,255,255,.2);
+    color: #fff;
+    font-size: 24px;
+    font-weight: 800;
+  }
 
-  title: {
-    margin: "0",
-    fontSize: "30px",
-    lineHeight: "1.2",
-    color: "#172033",
-  },
+  .eyebrow {
+    margin-bottom: 6px;
+    color: #718097;
+    font-size: 9px;
+    font-weight: 800;
+    letter-spacing: 1.5px;
+  }
 
-  subtitle: {
-    margin: "8px 0 0",
-    color: "#6b7485",
-    fontSize: "15px",
-  },
+  .booking-hero .eyebrow {
+    color: rgba(255,255,255,.7);
+  }
 
-  successCard: {
-    background: "#edf9f1",
-    border: "1px solid #bde4c8",
-    borderRadius: "16px",
-    padding: "18px",
-    display: "flex",
-    gap: "14px",
-    alignItems: "flex-start",
-    marginBottom: "20px",
-  },
+  .booking-hero h1 {
+    margin: 0;
+    color: #fff;
+    font-size: 29px;
+    letter-spacing: -.5px;
+  }
 
-  successIcon: {
-    width: "32px",
-    height: "32px",
-    borderRadius: "50%",
-    background: "#2f9e57",
-    color: "#ffffff",
-    display: "flex",
-    justifyContent: "center",
-    alignItems: "center",
-    fontWeight: "800",
-    flexShrink: 0,
-  },
+  .booking-hero p {
+    margin: 7px 0 0;
+    color: rgba(255,255,255,.8);
+    font-size: 12px;
+  }
 
-  successTitle: {
-    margin: "0 0 5px",
-    color: "#236e3d",
-    fontSize: "17px",
-  },
+  .notice {
+    margin-top: 14px;
+    padding: 13px 15px;
+    border-radius: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    font-size: 10px;
+  }
 
-  successText: {
-    margin: "0",
-    color: "#356f49",
-    fontSize: "14px",
-  },
+  .notice strong {
+    color: #29344a;
+    font-size: 11px;
+  }
 
-  successExtra: {
-    margin: "7px 0 0",
-    color: "#4d795d",
-    fontSize: "13px",
-  },
+  .notice span {
+    color: #718096;
+    line-height: 1.5;
+  }
 
-  alertCard: {
-    background: "#fff2f2",
-    border: "1px solid #efc5c5",
-    color: "#9d3131",
-    borderRadius: "14px",
-    padding: "14px 16px",
-    marginBottom: "20px",
-    fontSize: "14px",
-  },
+  .notice.success {
+    background: #edf8f1;
+    border: 1px solid #d1e8d9;
+  }
 
-  bookingGrid: {
-    display: "grid",
-    gridTemplateColumns: "1.45fr 0.95fr",
-    gap: "20px",
-    alignItems: "start",
-  },
+  .notice.error {
+    background: #fff1f1;
+    border: 1px solid #efd4d4;
+  }
 
-  leftColumn: {
-    display: "flex",
-    flexDirection: "column",
-    gap: "20px",
-  },
+  .booking-layout {
+    display: grid;
+    grid-template-columns: 1.25fr .8fr;
+    gap: 16px;
+    margin-top: 16px;
+    align-items: start;
+  }
 
-  rightColumn: {
-    position: "sticky",
-    top: "20px",
-  },
+  .main-column {
+    display: grid;
+    gap: 16px;
+  }
 
-  card: {
-    background: "#ffffff",
-    border: "1px solid #e3e8f0",
-    borderRadius: "18px",
-    padding: "24px",
-    boxShadow: "0 8px 24px rgba(23, 32, 51, 0.05)",
-  },
+  .side-column {
+    position: sticky;
+    top: 18px;
+  }
 
-  cardHeader: {
-    display: "flex",
-    justifyContent: "space-between",
-    alignItems: "flex-start",
-    gap: "15px",
-    marginBottom: "18px",
-  },
+  .card {
+    background: #fff;
+    border: 1px solid #e0e5ed;
+    border-radius: 17px;
+    padding: 21px;
+    box-shadow: 0 8px 22px rgba(22,31,54,.04);
+  }
 
-  cardStep: {
-    margin: "0 0 4px",
-    fontSize: "11px",
-    fontWeight: "800",
-    letterSpacing: "1.2px",
-    color: "#718096",
-  },
+  .card-head {
+    display: flex;
+    align-items: flex-start;
+    gap: 11px;
+    margin-bottom: 17px;
+  }
 
-  cardTitle: {
-    margin: "0",
-    color: "#172033",
-    fontSize: "20px",
-  },
+  .step {
+    width: 31px;
+    height: 31px;
+    display: grid;
+    place-items: center;
+    flex-shrink: 0;
+    border-radius: 10px;
+    background: #eef1ff;
+    color: #5065ce;
+    font-size: 9px;
+    font-weight: 800;
+  }
 
-  dateInput: {
-    width: "100%",
-    boxSizing: "border-box",
-    border: "1px solid #d7deea",
-    borderRadius: "12px",
-    padding: "13px 14px",
-    fontSize: "15px",
-    color: "#172033",
-    background: "#ffffff",
-    outline: "none",
-  },
+  .card h2 {
+    margin: 0;
+    color: #222d42;
+    font-size: 19px;
+  }
 
-  dateInfo: {
-    margin: "10px 0 0",
-    fontSize: "13px",
-    color: "#6c7688",
-  },
+  .card p {
+    margin: 5px 0 0;
+    color: #7a8598;
+    font-size: 10px;
+    line-height: 1.5;
+  }
 
-  durationGrid: {
-    display: "grid",
-    gridTemplateColumns: "repeat(4, 1fr)",
-    gap: "10px",
-  },
+  .date-input,
+  label input {
+    width: 100%;
+    height: 43px;
+    border: 1px solid #d7dee8;
+    border-radius: 10px;
+    background: #fff;
+    color: #273248;
+    padding: 0 11px;
+    font: inherit;
+    font-size: 12px;
+    outline: none;
+  }
 
-  durationButton: {
-    border: "1px solid #d7deea",
-    borderRadius: "11px",
-    background: "#ffffff",
-    color: "#445066",
-    padding: "11px 8px",
-    fontSize: "14px",
-    fontWeight: "600",
-    cursor: "pointer",
-  },
+  .date-input:focus,
+  label input:focus {
+    border-color: #6274d8;
+    box-shadow: 0 0 0 3px rgba(77,99,210,.1);
+  }
 
-  durationButtonActive: {
-    background: "#4d63d2",
-    color: "#ffffff",
-    border: "1px solid #4d63d2",
-  },
+  .selected-date {
+    margin-top: 9px;
+    color: #5f6b7e;
+    font-size: 10px;
+  }
 
-  timezoneBadge: {
-    background: "#f1f4fb",
-    color: "#526077",
-    borderRadius: "20px",
-    padding: "7px 10px",
-    fontSize: "11px",
-    fontWeight: "700",
-    maxWidth: "180px",
-    overflow: "hidden",
-    textOverflow: "ellipsis",
-    whiteSpace: "nowrap",
-  },
+  .duration-grid {
+    display: grid;
+    grid-template-columns: repeat(4,1fr);
+    gap: 9px;
+  }
 
-  timezoneText: {
-    margin: "-8px 0 18px",
-    color: "#7b8494",
-    fontSize: "13px",
-  },
+  .duration-btn,
+  .slot-btn {
+    border: 1px solid #d7deea;
+    background: #fff;
+    color: #39455a;
+    border-radius: 10px;
+    cursor: pointer;
+  }
 
-  slotLoading: {
-    border: "1px dashed #cdd6e4",
-    borderRadius: "13px",
-    padding: "28px",
-    textAlign: "center",
-    color: "#6d778a",
-    fontSize: "14px",
-  },
+  .duration-btn {
+    min-height: 64px;
+    display: grid;
+    place-items: center;
+    align-content: center;
+    gap: 3px;
+  }
 
-  slotsGrid: {
-    display: "grid",
-    gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
-    gap: "10px",
-  },
+  .duration-btn strong {
+    font-size: 18px;
+  }
 
-  slotButton: {
-    border: "1px solid #ccd5e3",
-    borderRadius: "11px",
-    background: "#ffffff",
-    color: "#253149",
-    padding: "12px 8px",
-    fontSize: "14px",
-    fontWeight: "600",
-    cursor: "pointer",
-  },
+  .duration-btn span {
+    font-size: 9px;
+    color: #7d8798;
+  }
 
-  slotButtonActive: {
-    background: "#4d63d2",
-    border: "1px solid #4d63d2",
-    color: "#ffffff",
-  },
+  .duration-btn.active,
+  .slot-btn.active {
+    background: #4d63d2;
+    border-color: #4d63d2;
+    color: #fff;
+  }
 
-  emptyState: {
-    border: "1px dashed #cdd6e4",
-    borderRadius: "14px",
-    padding: "34px 20px",
-    textAlign: "center",
-  },
+  .duration-btn.active span {
+    color: rgba(255,255,255,.78);
+  }
 
-  emptyIcon: {
-    width: "40px",
-    height: "40px",
-    borderRadius: "12px",
-    background: "#f0f2f6",
-    color: "#778196",
-    display: "flex",
-    justifyContent: "center",
-    alignItems: "center",
-    margin: "0 auto 12px",
-    fontSize: "18px",
-    fontWeight: "800",
-  },
+  .timezone {
+    margin-left: auto;
+    max-width: 170px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    padding: 7px 9px;
+    border-radius: 999px;
+    background: #f1f4f8;
+    color: #677286;
+    font-size: 8px;
+    font-weight: 700;
+  }
 
-  emptyTitle: {
-    margin: "0 0 7px",
-    fontSize: "16px",
-    color: "#28344b",
-  },
+  .slots-grid {
+    display: grid;
+    grid-template-columns: repeat(3,1fr);
+    gap: 9px;
+  }
 
-  emptyText: {
-    margin: "0 auto",
-    maxWidth: "430px",
-    fontSize: "13px",
-    lineHeight: "1.6",
-    color: "#727d90",
-  },
+  .slot-btn {
+    padding: 11px 8px;
+    font-size: 11px;
+    font-weight: 700;
+  }
 
-  retryButton: {
-    marginTop: "16px",
-    border: "none",
-    background: "#4d63d2",
-    color: "#ffffff",
-    borderRadius: "9px",
-    padding: "10px 15px",
-    fontWeight: "600",
-    cursor: "pointer",
-  },
+  .slot-state {
+    min-height: 190px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    gap: 5px;
+    border: 1px dashed #d8dfe8;
+    border-radius: 13px;
+    padding: 22px;
+  }
 
-  formGroup: {
-    marginBottom: "16px",
-  },
+  .state-mini {
+    width: 40px;
+    height: 40px;
+    margin-bottom: 5px;
+    display: grid;
+    place-items: center;
+    border-radius: 12px;
+    background: #eef1ff;
+    color: #5166cf;
+    font-weight: 800;
+  }
 
-  label: {
-    display: "block",
-    marginBottom: "7px",
-    color: "#3a4558",
-    fontSize: "13px",
-    fontWeight: "700",
-  },
+  .slot-state strong {
+    color: #303b50;
+    font-size: 13px;
+  }
 
-  input: {
-    width: "100%",
-    boxSizing: "border-box",
-    border: "1px solid #d5dce8",
-    borderRadius: "11px",
-    padding: "12px 13px",
-    fontSize: "14px",
-    color: "#172033",
-    outline: "none",
-    background: "#ffffff",
-  },
+  .slot-state span {
+    max-width: 320px;
+    color: #7f8999;
+    font-size: 10px;
+    line-height: 1.5;
+  }
 
-  summaryBox: {
-    marginTop: "20px",
-    background: "#f7f8fc",
-    border: "1px solid #e4e8f0",
-    borderRadius: "14px",
-    padding: "15px",
-  },
+  .slot-state .secondary-btn {
+    margin-top: 9px;
+  }
 
-  summaryHeading: {
-    margin: "0 0 12px",
-    fontWeight: "800",
-    color: "#253149",
-    fontSize: "14px",
-  },
+  label {
+    display: block;
+    margin-bottom: 14px;
+    color: #344057;
+    font-size: 10px;
+    font-weight: 800;
+  }
 
-  summaryRow: {
-    display: "flex",
-    justifyContent: "space-between",
-    gap: "15px",
-    padding: "9px 0",
-    borderBottom: "1px solid #e8ebf1",
-    fontSize: "13px",
-    color: "#6b7485",
-  },
+  label input {
+    margin-top: 7px;
+  }
 
-  bookButton: {
-    width: "100%",
-    border: "none",
-    borderRadius: "12px",
-    background: "#4d63d2",
-    color: "#ffffff",
-    padding: "14px",
-    marginTop: "18px",
-    fontSize: "15px",
-    fontWeight: "700",
-    cursor: "pointer",
-  },
+  .summary {
+    margin-top: 18px;
+    padding: 14px;
+    border-radius: 13px;
+    background: #f7f8fb;
+    border: 1px solid #e4e8ee;
+  }
 
-  bookButtonDisabled: {
-    background: "#b8bfd0",
-    cursor: "not-allowed",
-  },
+  .summary-title {
+    margin-bottom: 8px;
+    color: #29344a;
+    font-size: 12px;
+    font-weight: 800;
+  }
 
-  disclaimer: {
-    margin: "11px 0 0",
-    textAlign: "center",
-    color: "#7a8495",
-    fontSize: "11px",
-    lineHeight: "1.5",
-  },
+  .summary > div:not(.summary-title) {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 8px 0;
+    border-top: 1px solid #e8ebf0;
+    font-size: 9px;
+  }
 
-  loadingCard: {
-    maxWidth: "500px",
-    margin: "80px auto",
-    background: "#ffffff",
-    borderRadius: "18px",
-    padding: "35px",
-    textAlign: "center",
-    border: "1px solid #e3e8f0",
-  },
+  .summary span {
+    color: #818b9b;
+  }
 
-  loadingText: {
-    margin: "0",
-    color: "#667085",
-  },
+  .summary strong {
+    color: #364157;
+    text-align: right;
+    font-size: 9px;
+  }
 
-  errorCard: {
-    maxWidth: "520px",
-    margin: "80px auto",
-    background: "#ffffff",
-    borderRadius: "18px",
-    padding: "35px",
-    textAlign: "center",
-    border: "1px solid #e3e8f0",
-    boxShadow: "0 10px 30px rgba(23, 32, 51, 0.06)",
-  },
+  .confirm-btn,
+  .primary-btn,
+  .secondary-btn {
+    border-radius: 10px;
+    font-size: 11px;
+    font-weight: 800;
+    cursor: pointer;
+  }
 
-  errorTitle: {
-    margin: "0 0 8px",
-    color: "#263249",
-  },
+  .confirm-btn,
+  .primary-btn {
+    border: 1px solid #4d63d2;
+    background: #4d63d2;
+    color: #fff;
+  }
 
-  errorText: {
-    margin: "0 0 20px",
-    color: "#70798b",
-  },
+  .confirm-btn {
+    width: 100%;
+    padding: 13px;
+    margin-top: 15px;
+  }
 
-  secondaryButton: {
-    border: "none",
-    borderRadius: "10px",
-    background: "#4d63d2",
-    color: "#ffffff",
-    padding: "11px 17px",
-    fontWeight: "600",
-    cursor: "pointer",
-  },
-};
+  .secondary-btn {
+    border: 1px solid #d5dce7;
+    background: #fff;
+    color: #536078;
+    padding: 9px 13px;
+  }
 
+  .confirm-btn:disabled,
+  .primary-btn:disabled {
+    opacity: .5;
+    cursor: not-allowed;
+  }
+
+  .helper {
+    text-align: center;
+    margin-top: 9px !important;
+    font-size: 9px !important;
+  }
+
+  .state-card {
+    max-width: 440px;
+    margin: 100px auto;
+    padding: 35px;
+    border: 1px solid #e0e5ed;
+    border-radius: 18px;
+    background: #fff;
+    text-align: center;
+    box-shadow: 0 8px 24px rgba(22,31,54,.04);
+  }
+
+  .state-icon,
+  .error-icon {
+    width: 50px;
+    height: 50px;
+    display: grid;
+    place-items: center;
+    margin: 0 auto 13px;
+    border-radius: 14px;
+    font-weight: 800;
+  }
+
+  .state-icon {
+    background: #eef1ff;
+    color: #5166ce;
+  }
+
+  .error-icon {
+    background: #fff0f0;
+    color: #b34848;
+  }
+
+  .state-card h2 {
+    margin: 0 0 6px;
+    color: #283349;
+    font-size: 20px;
+  }
+
+  .state-card p {
+    margin: 0 0 18px;
+    color: #788396;
+    font-size: 11px;
+  }
+
+  footer {
+    display: flex;
+    justify-content: space-between;
+    gap: 15px;
+    margin-top: 20px;
+    padding: 15px 2px 0;
+    border-top: 1px solid #e1e6ef;
+    color: #8a94a5;
+    font-size: 9px;
+  }
+
+  @media (max-width: 800px) {
+    .booking-layout {
+      grid-template-columns: 1fr;
+    }
+
+    .side-column {
+      position: static;
+    }
+  }
+
+  @media (max-width: 560px) {
+    .booking-page {
+      padding: 14px;
+    }
+
+    .booking-hero {
+      padding: 20px;
+      align-items: flex-start;
+    }
+
+    .booking-hero h1 {
+      font-size: 25px;
+    }
+
+    .duration-grid,
+    .slots-grid {
+      grid-template-columns: repeat(2,1fr);
+    }
+
+    .timezone {
+      max-width: 130px;
+    }
+
+    .footer {
+      flex-direction: column;
+    }
+  }
+`;
 export default BookSession;

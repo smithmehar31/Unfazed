@@ -51,6 +51,14 @@ const therapistSchema = new mongoose.Schema(
       default: "Asia/Kolkata",
       trim: true,
     },
+
+    // Current subscription tier
+    subscription_tier_id: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "SubscriptionTierConfig",
+      default: null,
+      index: true,
+    },
   },
   {
     timestamps: true,

@@ -1,11 +1,14 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
+import { io } from "socket.io-client";
 import axiosInstance from "../../api/axiosInstance";
 
 function ClientPortal() {
   const [searchParams] = useSearchParams();
-
   const token = searchParams.get("token");
+
+  const socketRef = useRef(null);
+  const messagesEndRef = useRef(null);
 
   const [client, setClient] = useState(null);
   const [therapist, setTherapist] = useState(null);
@@ -15,14 +18,30 @@ function ClientPortal() {
   const [occupation, setOccupation] = useState("");
   const [presentingConcern, setPresentingConcern] = useState("");
   const [history, setHistory] = useState("");
-
   const [consentAccepted, setConsentAccepted] = useState(false);
 
+  const [sharedNotes, setSharedNotes] = useState([]);
+  const [messages, setMessages] = useState([]);
+  const [messageText, setMessageText] = useState("");
+  const [chatConnected, setChatConnected] = useState(false);
+  const [chatError, setChatError] = useState("");
+
   const [loading, setLoading] = useState(true);
-  const [submitting, setSubmitting] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [loadingNotes, setLoadingNotes] = useState(false);
 
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+
+  const clientId =
+    client?._id ||
+    client?.id;
+
+  const therapistId =
+    therapist?._id ||
+    therapist?.id ||
+    client?.therapist_id ||
+    client?.therapistId;
 
   useEffect(() => {
     if (!token) {
@@ -31,10 +50,32 @@ function ClientPortal() {
       return;
     }
 
-    fetchPortalData();
+    fetchPortal();
   }, [token]);
 
-  async function fetchPortalData() {
+  useEffect(() => {
+    if (!clientId || !therapistId) return;
+
+    connectChat();
+
+    return () => {
+      if (socketRef.current) {
+        socketRef.current.emit("chat:leave");
+        socketRef.current.disconnect();
+        socketRef.current = null;
+      }
+
+      setChatConnected(false);
+    };
+  }, [clientId, therapistId]);
+
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({
+      behavior: "smooth",
+    });
+  }, [messages]);
+
+  async function fetchPortal() {
     try {
       setLoading(true);
       setError("");
@@ -42,51 +83,183 @@ function ClientPortal() {
       const response = await axiosInstance.get(
         "/clients/portal/client",
         {
-          params: {
-            token,
-          },
+          params: { token },
         }
       );
 
-      if (response.data.success) {
-        const portalClient = response.data.client;
-
-        setClient(portalClient);
-        setTherapist(response.data.therapist);
-
-        setAge(
-          portalClient.intake?.demographics?.age ?? ""
-        );
-
-        setGender(
-          portalClient.intake?.demographics?.gender || ""
-        );
-
-        setOccupation(
-          portalClient.intake?.demographics?.occupation || ""
-        );
-
-        setPresentingConcern(
-          portalClient.intake?.presenting_concern || ""
-        );
-
-        setHistory(
-          portalClient.intake?.history || ""
-        );
-
-        setConsentAccepted(
-          portalClient.consent?.accepted || false
+      if (!response.data?.success) {
+        throw new Error(
+          response.data?.message ||
+            "Unable to load client portal."
         );
       }
+
+      const portalClient = response.data.client || {};
+      const portalTherapist = response.data.therapist || {};
+
+      setClient(portalClient);
+      setTherapist(portalTherapist);
+
+      setAge(
+        portalClient.intake?.demographics?.age ?? ""
+      );
+
+      setGender(
+        portalClient.intake?.demographics?.gender || ""
+      );
+
+      setOccupation(
+        portalClient.intake?.demographics?.occupation || ""
+      );
+
+      setPresentingConcern(
+        portalClient.intake?.presenting_concern || ""
+      );
+
+      setHistory(
+        portalClient.intake?.history || ""
+      );
+
+      setConsentAccepted(
+        portalClient.consent?.accepted || false
+      );
+
+      await fetchSharedNotes();
     } catch (error) {
       console.error("Portal load error:", error);
 
       setError(
         error.response?.data?.message ||
+          error.message ||
           "Unable to load the client portal."
       );
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function fetchSharedNotes() {
+    try {
+      setLoadingNotes(true);
+
+      const response = await axiosInstance.get(
+        "/notes/portal/shared",
+        {
+          params: { token },
+        }
+      );
+
+      const data = response.data || {};
+
+      setSharedNotes(
+        Array.isArray(data.notes)
+          ? data.notes
+          : Array.isArray(data.data)
+          ? data.data
+          : Array.isArray(data.results)
+          ? data.results
+          : []
+      );
+    } catch (error) {
+      console.error("Shared notes error:", error);
+      setSharedNotes([]);
+    } finally {
+      setLoadingNotes(false);
+    }
+  }
+
+  function connectChat() {
+    if (socketRef.current) {
+      socketRef.current.disconnect();
+    }
+
+    const socket = io(
+      import.meta.env.VITE_SOCKET_URL ||
+        "http://localhost:5000",
+      {
+        transports: ["websocket", "polling"],
+      }
+    );
+
+    socketRef.current = socket;
+
+    socket.on("connect", () => {
+      setChatConnected(true);
+      setChatError("");
+
+      socket.emit("chat:join", {
+        client_id: clientId,
+        therapist_id: therapistId,
+      });
+    });
+
+    socket.on("chat:message", (data) => {
+      if (!data?.success || !data?.message) return;
+
+      setMessages((current) => {
+        const exists = current.some(
+          (item) => item._id === data.message._id
+        );
+
+        return exists
+          ? current
+          : [...current, data.message];
+      });
+    });
+
+    socket.on("chat:error", (data) => {
+      setChatError(
+        data?.message || "A chat error occurred."
+      );
+    });
+
+    socket.on("disconnect", () => {
+      setChatConnected(false);
+    });
+
+    socket.on("connect_error", () => {
+      setChatConnected(false);
+      setChatError(
+        "Unable to connect to real-time chat."
+      );
+    });
+  }
+
+  function sendMessage() {
+    const message = messageText.trim();
+
+    if (!message) return;
+
+    if (!socketRef.current?.connected) {
+      setChatError(
+        "Chat is not connected. Please wait a moment."
+      );
+      return;
+    }
+
+    if (message.length > 2000) {
+      setChatError(
+        "Message cannot exceed 2000 characters."
+      );
+      return;
+    }
+
+    socketRef.current.emit("chat:send", {
+      client_id: clientId,
+      therapist_id: therapistId,
+      sender_type: "client",
+      sender_id: clientId,
+      message,
+    });
+
+    setMessageText("");
+    setChatError("");
+  }
+
+  function handleChatKeyDown(event) {
+    if (event.key === "Enter" && !event.shiftKey) {
+      event.preventDefault();
+      sendMessage();
     }
   }
 
@@ -104,40 +277,38 @@ function ClientPortal() {
     }
 
     try {
-      setSubmitting(true);
+      setSaving(true);
 
       const response = await axiosInstance.post(
         "/clients/portal/intake",
         {
           token,
           demographics: {
-            age:
-              age === ""
-                ? undefined
-                : Number(age),
+            age: age === "" ? undefined : Number(age),
             gender: gender.trim(),
             occupation: occupation.trim(),
           },
-          presenting_concern:
-            presentingConcern.trim(),
+          presenting_concern: presentingConcern.trim(),
           history: history.trim(),
           consent_accepted: true,
         }
       );
 
-      if (response.data.success) {
-        setClient((currentClient) => ({
-          ...currentClient,
+      if (response.data?.success) {
+        setClient((current) => ({
+          ...current,
           intake: response.data.client.intake,
           consent: response.data.client.consent,
         }));
+
+        setConsentAccepted(true);
 
         setSuccess(
           response.data.message ||
             "Your intake and consent have been submitted successfully."
         );
 
-        setConsentAccepted(true);
+        await fetchSharedNotes();
       }
     } catch (error) {
       console.error("Portal submit error:", error);
@@ -147,658 +318,1139 @@ function ClientPortal() {
           "Unable to submit your intake information."
       );
     } finally {
-      setSubmitting(false);
+      setSaving(false);
     }
+  }
+
+  function noteText(content) {
+    if (!content) return "";
+
+    const div = document.createElement("div");
+    div.innerHTML = content;
+
+    return div.textContent || div.innerText || "";
+  }
+
+  function formatDate(value) {
+    if (!value) return "No date";
+
+    const date = new Date(value);
+
+    if (Number.isNaN(date.getTime())) {
+      return "No date";
+    }
+
+    return date.toLocaleString("en-IN", {
+      dateStyle: "medium",
+      timeStyle: "short",
+    });
+  }
+
+  function chatTime(value) {
+    if (!value) return "";
+
+    const date = new Date(value);
+
+    if (Number.isNaN(date.getTime())) {
+      return "";
+    }
+
+    return date.toLocaleString("en-IN", {
+      day: "2-digit",
+      month: "short",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
   }
 
   if (loading) {
     return (
-      <div style={styles.page}>
-        <div style={styles.loadingCard}>
-          <p style={styles.loadingText}>
-            Loading your client portal...
-          </p>
+      <>
+        <style>{css}</style>
+
+        <div className="portal-page">
+          <div className="state-card">
+            <div className="state-icon">U</div>
+            <h2>Loading your portal</h2>
+            <p>Preparing your client workspace...</p>
+          </div>
         </div>
-      </div>
+      </>
     );
   }
 
-  if (!token || error && !client) {
+  if (!token || (error && !client)) {
     return (
-      <div style={styles.page}>
-        <div style={styles.errorCard}>
-          <div style={styles.errorIcon}>!</div>
+      <>
+        <style>{css}</style>
 
-          <h2 style={styles.errorTitle}>
-            Client portal unavailable
-          </h2>
-
-          <p style={styles.errorText}>
-            {error || "Unable to open this portal link."}
-          </p>
-
-          <p style={styles.helpText}>
-            Please contact your therapist if you received this
-            link incorrectly or it has expired.
-          </p>
+        <div className="portal-page">
+          <div className="state-card">
+            <div className="error-icon">!</div>
+            <h2>Client portal unavailable</h2>
+            <p>{error}</p>
+            <small>
+              Please contact your therapist if the link is
+              incorrect or expired.
+            </small>
+          </div>
         </div>
-      </div>
+      </>
     );
   }
 
   return (
-    <div style={styles.page}>
-      <div style={styles.container}>
-        <header style={styles.header}>
-          <div style={styles.brand}>Unfazed</div>
+    <>
+      <style>{css}</style>
 
-          <div style={styles.therapistInfo}>
-            <span>Therapist</span>
-            <strong>{therapist?.name}</strong>
-          </div>
-        </header>
-
-        <section style={styles.hero}>
-          <p style={styles.smallLabel}>CLIENT PORTAL</p>
-
-          <h1 style={styles.title}>
-            Welcome, {client?.name}
-          </h1>
-
-          <p style={styles.subtitle}>
-            Please complete your intake information and consent
-            before your session.
-          </p>
-        </section>
-
-        {success && (
-          <div style={styles.successBanner}>
-            <div style={styles.successIcon}>✓</div>
-
-            <div>
-              <strong style={styles.successTitle}>
-                Submitted successfully
-              </strong>
-
-              <p style={styles.successText}>
-                {success}
-              </p>
-            </div>
-          </div>
-        )}
-
-        {error && client && (
-          <div style={styles.errorBanner}>
-            {error}
-          </div>
-        )}
-
-        <form onSubmit={handleSubmit}>
-          <section style={styles.card}>
-            <div style={styles.sectionHeader}>
-              <p style={styles.sectionLabel}>
-                01
-              </p>
+      <div className="portal-page">
+        <div className="portal-shell">
+          <header className="topbar">
+            <div className="brand">
+              <div className="brand-mark">U</div>
 
               <div>
-                <h2 style={styles.sectionTitle}>
-                  About you
-                </h2>
-
-                <p style={styles.sectionDescription}>
-                  Provide some basic information.
-                </p>
+                <strong>Unfazed</strong>
+                <span>Client portal</span>
               </div>
             </div>
 
-            <div style={styles.formGrid}>
-              <div style={styles.formGroup}>
-                <label style={styles.label}>
-                  Full Name
-                </label>
+            <div className="therapist">
+              <span>Therapist</span>
+              <strong>
+                {therapist?.name || "Your therapist"}
+              </strong>
+            </div>
+          </header>
 
-                <input
-                  type="text"
-                  value={client?.name || ""}
-                  disabled
-                  style={styles.disabledInput}
-                />
+          <section className="hero">
+            <div>
+              <div className="eyebrow light">CLIENT PORTAL</div>
+
+              <h1>
+                Welcome, {client?.name}
+              </h1>
+
+              <p>
+                Complete your intake, confirm consent and stay
+                connected with your therapist.
+              </p>
+            </div>
+
+            <div className="hero-badge">
+              <span />
+              Private workspace
+            </div>
+          </section>
+
+          {success && (
+            <div className="notice success">
+              <strong>Submitted successfully</strong>
+              <span>{success}</span>
+            </div>
+          )}
+
+          {error && (
+            <div className="notice error">
+              <strong>Action needed</strong>
+              <span>{error}</span>
+            </div>
+          )}
+
+          <form onSubmit={handleSubmit}>
+            <section className="card">
+              <div className="section-head">
+                <div className="number">01</div>
+
+                <div>
+                  <div className="eyebrow">ABOUT YOU</div>
+                  <h2>Basic information</h2>
+                  <p>
+                    Tell your therapist a little about yourself.
+                  </p>
+                </div>
               </div>
 
-              <div style={styles.formGroup}>
-                <label style={styles.label}>
+              <div className="grid">
+                <label>
+                  Full name
+                  <input value={client?.name || ""} disabled />
+                </label>
+
+                <label>
                   Email
+                  <input value={client?.email || ""} disabled />
                 </label>
 
-                <input
-                  type="email"
-                  value={client?.email || ""}
-                  disabled
-                  style={styles.disabledInput}
-                />
-              </div>
-
-              <div style={styles.formGroup}>
-                <label style={styles.label}>
+                <label>
                   Age
+                  <input
+                    type="number"
+                    min="0"
+                    value={age}
+                    onChange={(event) =>
+                      setAge(event.target.value)
+                    }
+                    placeholder="Your age"
+                  />
                 </label>
 
-                <input
-                  type="number"
-                  min="0"
-                  value={age}
-                  onChange={(event) =>
-                    setAge(event.target.value)
-                  }
-                  placeholder="Your age"
-                  style={styles.input}
-                />
+                <label>
+                  Gender
+                  <input
+                    value={gender}
+                    onChange={(event) =>
+                      setGender(event.target.value)
+                    }
+                    placeholder="Gender"
+                  />
+                </label>
+
+                <label className="full">
+                  Occupation
+                  <input
+                    value={occupation}
+                    onChange={(event) =>
+                      setOccupation(event.target.value)
+                    }
+                    placeholder="Occupation"
+                  />
+                </label>
+              </div>
+            </section>
+
+            <section className="card">
+              <div className="section-head">
+                <div className="number">02</div>
+
+                <div>
+                  <div className="eyebrow">INTAKE</div>
+                  <h2>What brings you here?</h2>
+                  <p>
+                    Share information that will help your therapist
+                    prepare for your session.
+                  </p>
+                </div>
               </div>
 
-              <div style={styles.formGroup}>
-                <label style={styles.label}>
-                  Gender
-                </label>
-
-                <input
-                  type="text"
-                  value={gender}
+              <label>
+                Presenting concern
+                <textarea
+                  rows="6"
+                  value={presentingConcern}
                   onChange={(event) =>
-                    setGender(event.target.value)
+                    setPresentingConcern(event.target.value)
                   }
-                  placeholder="Gender"
-                  style={styles.input}
+                  placeholder="Describe what you would like support with..."
                 />
+              </label>
+
+              <label>
+                Relevant history
+                <textarea
+                  rows="7"
+                  value={history}
+                  onChange={(event) =>
+                    setHistory(event.target.value)
+                  }
+                  placeholder="Share any relevant background or history..."
+                />
+              </label>
+            </section>
+
+            <section className="card">
+              <div className="section-head">
+                <div className="number">03</div>
+
+                <div>
+                  <div className="eyebrow">CONSENT</div>
+                  <h2>Confirm your consent</h2>
+                  <p>
+                    Please review the consent statement before
+                    submitting.
+                  </p>
+                </div>
+              </div>
+
+              <label className="consent">
+                <input
+                  type="checkbox"
+                  checked={consentAccepted}
+                  onChange={(event) =>
+                    setConsentAccepted(
+                      event.target.checked
+                    )
+                  }
+                />
+
+                <span>
+                  I confirm that the information I have provided is
+                  accurate to the best of my knowledge, and I consent
+                  to sharing this information with my therapist for
+                  my session and practice management.
+                </span>
+              </label>
+
+              {client?.consent?.accepted &&
+                client?.consent?.accepted_at && (
+                  <div className="recorded">
+                    ✓ Consent recorded on{" "}
+                    {formatDate(
+                      client.consent.accepted_at
+                    )}
+                  </div>
+                )}
+            </section>
+
+            <div className="submit-area">
+              <button
+                type="submit"
+                className="primary-btn"
+                disabled={saving}
+              >
+                {saving
+                  ? "Submitting..."
+                  : "Submit Intake & Consent"}
+              </button>
+            </div>
+          </form>
+
+          <section className="card chat-card">
+            <div className="section-head">
+              <div className="number">04</div>
+
+              <div>
+                <div className="eyebrow">MESSAGING</div>
+                <h2>Chat with your therapist</h2>
+                <p>
+                  Send a message directly through your secure portal.
+                </p>
               </div>
 
               <div
-                style={{
-                  ...styles.formGroup,
-                  gridColumn: "1 / -1",
-                }}
+                className={`chat-status ${
+                  chatConnected ? "online" : "offline"
+                }`}
               >
-                <label style={styles.label}>
-                  Occupation
-                </label>
-
-                <input
-                  type="text"
-                  value={occupation}
-                  onChange={(event) =>
-                    setOccupation(event.target.value)
-                  }
-                  placeholder="Occupation"
-                  style={styles.input}
-                />
-              </div>
-            </div>
-          </section>
-
-          <section style={styles.card}>
-            <div style={styles.sectionHeader}>
-              <p style={styles.sectionLabel}>
-                02
-              </p>
-
-              <div>
-                <h2 style={styles.sectionTitle}>
-                  Your intake
-                </h2>
-
-                <p style={styles.sectionDescription}>
-                  Help your therapist understand what brings
-                  you to the session.
-                </p>
+                <span />
+                {chatConnected ? "Live" : "Connecting"}
               </div>
             </div>
 
-            <div style={styles.formGroup}>
-              <label style={styles.label}>
-                Presenting Concern
-              </label>
-
-              <textarea
-                value={presentingConcern}
-                onChange={(event) =>
-                  setPresentingConcern(
-                    event.target.value
-                  )
-                }
-                placeholder="Please describe what you would like support with..."
-                rows={6}
-                style={styles.textarea}
-              />
-            </div>
-
-            <div style={styles.formGroup}>
-              <label style={styles.label}>
-                Relevant History
-              </label>
-
-              <textarea
-                value={history}
-                onChange={(event) =>
-                  setHistory(event.target.value)
-                }
-                placeholder="Share any relevant background or history..."
-                rows={7}
-                style={styles.textarea}
-              />
-            </div>
-          </section>
-
-          <section style={styles.card}>
-            <div style={styles.sectionHeader}>
-              <p style={styles.sectionLabel}>
-                03
-              </p>
-
-              <div>
-                <h2 style={styles.sectionTitle}>
-                  Consent
-                </h2>
-
-                <p style={styles.sectionDescription}>
-                  Review and confirm your consent before submitting.
-                </p>
+            {chatError && (
+              <div className="chat-error">
+                {chatError}
               </div>
-            </div>
+            )}
 
-            <label style={styles.consentBox}>
-              <input
-                type="checkbox"
-                checked={consentAccepted}
-                onChange={(event) =>
-                  setConsentAccepted(
-                    event.target.checked
-                  )
-                }
-                style={styles.checkbox}
-              />
+            <div className="messages">
+              {messages.length === 0 ? (
+                <div className="empty-chat">
+                  <div className="empty-icon">💬</div>
+                  <strong>No messages yet</strong>
+                  <span>
+                    Start the conversation with{" "}
+                    {therapist?.name || "your therapist"}.
+                  </span>
+                </div>
+              ) : (
+                messages.map((message) => {
+                  const mine =
+                    message.sender_type === "client";
 
-              <span style={styles.consentText}>
-                I confirm that the information I have provided is
-                accurate to the best of my knowledge, and I consent
-                to sharing this intake information with my therapist
-                for the purpose of my session and practice management.
-              </span>
-            </label>
+                  return (
+                    <div
+                      key={message._id}
+                      className={`message ${
+                        mine ? "mine" : "theirs"
+                      }`}
+                    >
+                      <div className="bubble">
+                        <p>{message.message}</p>
 
-            {client?.consent?.accepted &&
-              client?.consent?.accepted_at && (
-                <p style={styles.previousConsent}>
-                  Consent previously recorded on{" "}
-                  {new Date(
-                    client.consent.accepted_at
-                  ).toLocaleString()}
-                </p>
+                        <small>
+                          {mine
+                            ? "You"
+                            : therapist?.name || "Therapist"}{" "}
+                          · {chatTime(message.createdAt)}
+                        </small>
+                      </div>
+                    </div>
+                  );
+                })
               )}
+
+              <div ref={messagesEndRef} />
+            </div>
+
+            <div className="composer">
+              <textarea
+                rows="3"
+                maxLength="2000"
+                value={messageText}
+                onChange={(event) =>
+                  setMessageText(event.target.value)
+                }
+                onKeyDown={handleChatKeyDown}
+                disabled={!chatConnected}
+                placeholder={`Message ${
+                  therapist?.name || "your therapist"
+                }...`}
+              />
+
+              <div className="composer-bottom">
+                <span>{messageText.length}/2000</span>
+
+                <button
+                  type="button"
+                  className="primary-btn"
+                  onClick={sendMessage}
+                  disabled={
+                    !chatConnected ||
+                    !messageText.trim()
+                  }
+                >
+                  Send Message
+                </button>
+              </div>
+            </div>
           </section>
 
-          <div style={styles.submitArea}>
-            <button
-              type="submit"
-              disabled={submitting}
-              style={{
-                ...styles.submitButton,
-                ...(submitting
-                  ? styles.submitButtonDisabled
-                  : {}),
-              }}
-            >
-              {submitting
-                ? "Submitting..."
-                : "Submit Intake & Consent"}
-            </button>
+          <section className="card">
+            <div className="section-head">
+              <div className="number">05</div>
 
-            <p style={styles.footerNote}>
-              Your information will be shared with{" "}
-              <strong>{therapist?.name}</strong>.
-            </p>
-          </div>
-        </form>
+              <div>
+                <div className="eyebrow">SHARED NOTES</div>
+                <h2>Notes from your therapist</h2>
+                <p>
+                  Only notes explicitly shared with you are shown
+                  here.
+                </p>
+              </div>
+            </div>
 
-        <footer style={styles.footer}>
-          <p>Powered by Unfazed</p>
-        </footer>
+            {loadingNotes ? (
+              <div className="notes-state">
+                Loading shared notes...
+              </div>
+            ) : sharedNotes.length === 0 ? (
+              <div className="notes-state">
+                No shared notes yet.
+              </div>
+            ) : (
+              <div className="notes-list">
+                {sharedNotes.map((note) => (
+                  <article
+                    className="note"
+                    key={note._id || note.id}
+                  >
+                    <div className="note-top">
+                      <div>
+                        <h3>
+                          {note.title || "Session note"}
+                        </h3>
+                        <span>
+                          {formatDate(
+                            note.createdAt ||
+                              note.created_at
+                          )}
+                        </span>
+                      </div>
+
+                      <b>Shared</b>
+                    </div>
+
+                    <p>
+                      {noteText(note.content) ||
+                        "No note content available."}
+                    </p>
+                  </article>
+                ))}
+              </div>
+            )}
+          </section>
+
+          <footer>
+            <span>Powered by Unfazed</span>
+            <span>Private client workspace</span>
+          </footer>
+        </div>
       </div>
-    </div>
+    </>
   );
 }
 
-const styles = {
-  page: {
-    minHeight: "100vh",
-    background: "#f5f7fb",
-    color: "#172033",
-    padding: "28px 18px 60px",
-    boxSizing: "border-box",
-  },
+const css = `
+  .portal-page {
+    min-height: 100vh;
+    background: #f4f6fa;
+    color: #192338;
+    padding: 20px;
+    font-family: Inter, system-ui, -apple-system,
+      BlinkMacSystemFont, "Segoe UI", sans-serif;
+  }
 
-  container: {
-    maxWidth: "820px",
-    margin: "0 auto",
-  },
+  .portal-page * {
+    box-sizing: border-box;
+  }
 
-  header: {
-    display: "flex",
-    justifyContent: "space-between",
-    alignItems: "center",
-    gap: "20px",
-    paddingBottom: "20px",
-    borderBottom: "1px solid #e4e8ef",
-  },
+  .portal-shell {
+    max-width: 900px;
+    margin: 0 auto;
+  }
 
-  brand: {
-    color: "#4d63d2",
-    fontSize: "22px",
-    fontWeight: "800",
-  },
+  .topbar {
+    min-height: 62px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 18px;
+    border-bottom: 1px solid #e1e6ef;
+  }
 
-  therapistInfo: {
-    display: "flex",
-    flexDirection: "column",
-    alignItems: "flex-end",
-    gap: "3px",
-    fontSize: "11px",
-    color: "#7a8496",
-  },
+  .brand,
+  .therapist,
+  .hero-badge,
+  .chat-status {
+    display: flex;
+    align-items: center;
+  }
 
-  hero: {
-    padding: "35px 0 24px",
-  },
+  .brand {
+    gap: 10px;
+  }
 
-  smallLabel: {
-    margin: "0 0 7px",
-    color: "#778297",
-    fontSize: "10px",
-    fontWeight: "800",
-    letterSpacing: "1.4px",
-  },
+  .brand-mark {
+    width: 38px;
+    height: 38px;
+    display: grid;
+    place-items: center;
+    border-radius: 11px;
+    background: #4d63d2;
+    color: #fff;
+    font-weight: 800;
+  }
 
-  title: {
-    margin: "0",
-    color: "#172033",
-    fontSize: "32px",
-    lineHeight: "1.2",
-  },
+  .brand strong {
+    display: block;
+    color: #192338;
+    font-size: 14px;
+  }
 
-  subtitle: {
-    margin: "9px 0 0",
-    maxWidth: "670px",
-    color: "#6c7688",
-    fontSize: "14px",
-    lineHeight: "1.65",
-  },
+  .brand span,
+  .therapist span {
+    display: block;
+    margin-top: 2px;
+    color: #8290a2;
+    font-size: 9px;
+  }
 
-  card: {
-    background: "#ffffff",
-    border: "1px solid #e1e6ef",
-    borderRadius: "18px",
-    padding: "25px",
-    marginBottom: "18px",
-    boxShadow: "0 8px 24px rgba(23,32,51,0.04)",
-  },
+  .therapist {
+    align-items: flex-end;
+    flex-direction: column;
+  }
 
-  sectionHeader: {
-    display: "flex",
-    gap: "14px",
-    alignItems: "flex-start",
-    marginBottom: "21px",
-  },
+  .therapist strong {
+    color: #40506a;
+    font-size: 10px;
+  }
 
-  sectionLabel: {
-    width: "32px",
-    height: "32px",
-    borderRadius: "10px",
-    background: "#eef1ff",
-    color: "#4d63d2",
-    display: "flex",
-    justifyContent: "center",
-    alignItems: "center",
-    fontSize: "11px",
-    fontWeight: "800",
-    margin: "0",
-    flexShrink: 0,
-  },
+  .hero {
+    margin-top: 20px;
+    padding: 28px;
+    border-radius: 20px;
+    background: linear-gradient(135deg,#263a78,#5369d7);
+    color: #fff;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 18px;
+    box-shadow: 0 12px 28px rgba(46,61,130,.13);
+  }
 
-  sectionTitle: {
-    margin: "0",
-    color: "#202b3f",
-    fontSize: "20px",
-  },
+  .eyebrow {
+    margin-bottom: 6px;
+    color: #728098;
+    font-size: 9px;
+    font-weight: 800;
+    letter-spacing: 1.6px;
+  }
 
-  sectionDescription: {
-    margin: "4px 0 0",
-    color: "#7a8495",
-    fontSize: "12px",
-    lineHeight: "1.5",
-  },
+  .eyebrow.light {
+    color: rgba(255,255,255,.7);
+  }
 
-  formGrid: {
-    display: "grid",
-    gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
-    gap: "16px",
-  },
+  .hero h1 {
+    margin: 0;
+    font-size: 32px;
+    letter-spacing: -.6px;
+  }
 
-  formGroup: {
-    marginBottom: "5px",
-  },
+  .hero p {
+    margin: 8px 0 0;
+    color: rgba(255,255,255,.82);
+    font-size: 12px;
+    line-height: 1.6;
+    max-width: 580px;
+  }
 
-  label: {
-    display: "block",
-    marginBottom: "7px",
-    color: "#3c475b",
-    fontSize: "13px",
-    fontWeight: "700",
-  },
+  .hero-badge {
+    gap: 7px;
+    flex-shrink: 0;
+    padding: 8px 11px;
+    border: 1px solid rgba(255,255,255,.2);
+    border-radius: 999px;
+    background: rgba(255,255,255,.1);
+    color: #fff;
+    font-size: 9px;
+    font-weight: 700;
+  }
 
-  input: {
-    width: "100%",
-    boxSizing: "border-box",
-    border: "1px solid #d6dde8",
-    borderRadius: "10px",
-    padding: "11px 12px",
-    fontSize: "14px",
-    color: "#172033",
-    background: "#ffffff",
-    outline: "none",
-  },
+  .hero-badge span {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: #68d391;
+  }
 
-  disabledInput: {
-    width: "100%",
-    boxSizing: "border-box",
-    border: "1px solid #e0e4eb",
-    borderRadius: "10px",
-    padding: "11px 12px",
-    fontSize: "14px",
-    color: "#7a8495",
-    background: "#f6f7f9",
-    outline: "none",
-  },
+  .notice {
+    margin-top: 14px;
+    padding: 12px 14px;
+    border-radius: 11px;
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+  }
 
-  textarea: {
-    width: "100%",
-    boxSizing: "border-box",
-    border: "1px solid #d6dde8",
-    borderRadius: "10px",
-    padding: "12px",
-    fontSize: "14px",
-    color: "#172033",
-    background: "#ffffff",
-    outline: "none",
-    resize: "vertical",
-    lineHeight: "1.6",
-  },
+  .notice strong {
+    color: #2a354a;
+    font-size: 11px;
+  }
 
-  consentBox: {
-    display: "flex",
-    gap: "12px",
-    alignItems: "flex-start",
-    background: "#f7f8fb",
-    border: "1px solid #e2e6ed",
-    borderRadius: "12px",
-    padding: "15px",
-    cursor: "pointer",
-  },
+  .notice span {
+    color: #778194;
+    font-size: 10px;
+    line-height: 1.5;
+  }
 
-  checkbox: {
-    width: "18px",
-    height: "18px",
-    marginTop: "2px",
-    flexShrink: 0,
-    cursor: "pointer",
-  },
+  .notice.success {
+    background: #eef9f2;
+    border: 1px solid #d4eadc;
+  }
 
-  consentText: {
-    color: "#59657a",
-    fontSize: "13px",
-    lineHeight: "1.65",
-  },
+  .notice.error {
+    background: #fff2f2;
+    border: 1px solid #efd7d7;
+  }
 
-  previousConsent: {
-    margin: "12px 0 0",
-    color: "#3c7b4e",
-    fontSize: "12px",
-  },
+  form,
+  .chat-card,
+  .card {
+    margin-top: 16px;
+  }
 
-  submitArea: {
-    textAlign: "center",
-    padding: "4px 0 10px",
-  },
+  .card {
+    padding: 22px;
+    border: 1px solid #e0e5ed;
+    border-radius: 17px;
+    background: #fff;
+    box-shadow: 0 7px 20px rgba(22,31,54,.035);
+  }
 
-  submitButton: {
-    border: "none",
-    borderRadius: "11px",
-    background: "#4d63d2",
-    color: "#ffffff",
-    padding: "14px 24px",
-    fontSize: "14px",
-    fontWeight: "700",
-    cursor: "pointer",
-  },
+  .section-head {
+    display: flex;
+    align-items: flex-start;
+    gap: 11px;
+    margin-bottom: 19px;
+  }
 
-  submitButtonDisabled: {
-    opacity: 0.6,
-    cursor: "not-allowed",
-  },
+  .number {
+    width: 31px;
+    height: 31px;
+    display: grid;
+    place-items: center;
+    flex-shrink: 0;
+    border-radius: 10px;
+    background: #eef1ff;
+    color: #5065cf;
+    font-size: 9px;
+    font-weight: 800;
+  }
 
-  footerNote: {
-    margin: "10px 0 0",
-    color: "#7c8697",
-    fontSize: "11px",
-  },
+  .section-head h2 {
+    margin: 0;
+    color: #222d42;
+    font-size: 19px;
+  }
 
-  successBanner: {
-    display: "flex",
-    alignItems: "flex-start",
-    gap: "12px",
-    background: "#edf9f1",
-    border: "1px solid #c4e5cc",
-    borderRadius: "13px",
-    padding: "14px",
-    marginBottom: "18px",
-  },
+  .section-head p {
+    margin: 4px 0 0;
+    color: #7b8597;
+    font-size: 10px;
+    line-height: 1.5;
+  }
 
-  successIcon: {
-    width: "30px",
-    height: "30px",
-    borderRadius: "50%",
-    background: "#2f9754",
-    color: "#ffffff",
-    display: "flex",
-    justifyContent: "center",
-    alignItems: "center",
-    fontWeight: "800",
-    flexShrink: 0,
-  },
+  .grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 14px;
+  }
 
-  successTitle: {
-    color: "#2f7044",
-    fontSize: "14px",
-  },
+  label {
+    display: block;
+    margin-bottom: 14px;
+    color: #364156;
+    font-size: 11px;
+    font-weight: 800;
+  }
 
-  successText: {
-    margin: "4px 0 0",
-    color: "#4d775a",
-    fontSize: "12px",
-    lineHeight: "1.5",
-  },
+  label.full {
+    grid-column: 1 / -1;
+  }
 
-  errorBanner: {
-    background: "#fff1f1",
-    border: "1px solid #edcaca",
-    color: "#9a3737",
-    borderRadius: "12px",
-    padding: "13px 15px",
-    marginBottom: "18px",
-    fontSize: "13px",
-  },
+  input,
+  textarea {
+    width: 100%;
+    margin-top: 7px;
+    border: 1px solid #d7dee8;
+    border-radius: 10px;
+    background: #fff;
+    color: #273249;
+    font: inherit;
+    font-size: 12px;
+    outline: none;
+  }
 
-  loadingCard: {
-    maxWidth: "450px",
-    margin: "100px auto",
-    background: "#ffffff",
-    border: "1px solid #e1e6ef",
-    borderRadius: "18px",
-    padding: "35px",
-    textAlign: "center",
-  },
+  input {
+    height: 42px;
+    padding: 0 11px;
+  }
 
-  loadingText: {
-    margin: "0",
-    color: "#6f798b",
-  },
+  textarea {
+    min-height: 105px;
+    padding: 10px 11px;
+    resize: vertical;
+    line-height: 1.55;
+  }
 
-  errorCard: {
-    maxWidth: "500px",
-    margin: "100px auto",
-    background: "#ffffff",
-    border: "1px solid #e1e6ef",
-    borderRadius: "18px",
-    padding: "35px",
-    textAlign: "center",
-  },
+  input:focus,
+  textarea:focus {
+    border-color: #6173d7;
+    box-shadow: 0 0 0 3px rgba(77,99,210,.09);
+  }
 
-  errorIcon: {
-    width: "42px",
-    height: "42px",
-    borderRadius: "13px",
-    background: "#fff0f0",
-    color: "#b33d3d",
-    display: "flex",
-    justifyContent: "center",
-    alignItems: "center",
-    margin: "0 auto 12px",
-    fontWeight: "800",
-  },
+  input:disabled {
+    background: #f6f7fa;
+    color: #8791a1;
+  }
 
-  errorTitle: {
-    margin: "0 0 8px",
-    color: "#29354b",
-    fontSize: "20px",
-  },
+  .consent {
+    display: flex;
+    gap: 11px;
+    align-items: flex-start;
+    margin: 0;
+    padding: 13px;
+    border-radius: 11px;
+    background: #f7f8fb;
+    border: 1px solid #e4e8ee;
+    cursor: pointer;
+  }
 
-  errorText: {
-    margin: "0",
-    color: "#6f798b",
-    fontSize: "13px",
-    lineHeight: "1.6",
-  },
+  .consent input {
+    width: 17px;
+    height: 17px;
+    margin: 1px 0 0;
+    flex-shrink: 0;
+  }
 
-  helpText: {
-    margin: "12px 0 0",
-    color: "#8a93a2",
-    fontSize: "12px",
-    lineHeight: "1.6",
-  },
+  .consent span {
+    color: #5c687b;
+    font-size: 11px;
+    line-height: 1.65;
+  }
 
-  footer: {
-    textAlign: "center",
-    color: "#9098a6",
-    fontSize: "11px",
-    paddingTop: "18px",
-  },
-};
+  .recorded {
+    margin-top: 10px;
+    color: #348151;
+    font-size: 10px;
+  }
 
+  .submit-area {
+    text-align: right;
+    margin-top: 14px;
+  }
+
+  .primary-btn,
+  .secondary-btn {
+    border-radius: 10px;
+    padding: 10px 14px;
+    font-size: 11px;
+    font-weight: 800;
+    cursor: pointer;
+  }
+
+  .primary-btn {
+    border: 1px solid #4d63d2;
+    background: #4d63d2;
+    color: #fff;
+  }
+
+  .primary-btn:disabled {
+    opacity: .5;
+    cursor: not-allowed;
+  }
+
+  .chat-card .section-head {
+    align-items: center;
+  }
+
+  .chat-status {
+    margin-left: auto;
+    gap: 6px;
+    padding: 6px 8px;
+    border-radius: 999px;
+    font-size: 8px;
+    font-weight: 800;
+  }
+
+  .chat-status span {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+  }
+
+  .chat-status.online {
+    background: #edf9f2;
+    color: #32784e;
+  }
+
+  .chat-status.online span {
+    background: #31a366;
+  }
+
+  .chat-status.offline {
+    background: #f4f5f7;
+    color: #808a9b;
+  }
+
+  .chat-status.offline span {
+    background: #a2a9b4;
+  }
+
+  .chat-error {
+    margin-bottom: 10px;
+    padding: 10px 12px;
+    border-radius: 10px;
+    background: #fff2f2;
+    border: 1px solid #efd6d6;
+    color: #a54040;
+    font-size: 10px;
+  }
+
+  .messages {
+    height: 390px;
+    overflow-y: auto;
+    padding: 15px;
+    border: 1px solid #e4e8ee;
+    border-radius: 13px;
+    background: #f7f8fb;
+  }
+
+  .message {
+    display: flex;
+    margin-bottom: 10px;
+  }
+
+  .message.mine {
+    justify-content: flex-end;
+  }
+
+  .bubble {
+    max-width: 72%;
+    padding: 10px 12px;
+    border-radius: 12px;
+  }
+
+  .message.mine .bubble {
+    background: #4d63d2;
+    color: #fff;
+    border-bottom-right-radius: 4px;
+  }
+
+  .message.theirs .bubble {
+    background: #fff;
+    border: 1px solid #e0e5ed;
+    color: #2e394d;
+    border-bottom-left-radius: 4px;
+  }
+
+  .bubble p {
+    margin: 0;
+    font-size: 11px;
+    line-height: 1.55;
+    white-space: pre-wrap;
+    word-break: break-word;
+  }
+
+  .bubble small {
+    display: block;
+    margin-top: 6px;
+    font-size: 8px;
+  }
+
+  .message.mine .bubble small {
+    color: rgba(255,255,255,.7);
+  }
+
+  .message.theirs .bubble small {
+    color: #8992a1;
+  }
+
+  .empty-chat {
+    height: 100%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    flex-direction: column;
+    text-align: center;
+    gap: 6px;
+  }
+
+  .empty-icon {
+    width: 43px;
+    height: 43px;
+    display: grid;
+    place-items: center;
+    border-radius: 13px;
+    background: #eef1ff;
+    color: #5267cf;
+    font-size: 17px;
+  }
+
+  .empty-chat strong {
+    color: #344056;
+    font-size: 12px;
+  }
+
+  .empty-chat span {
+    color: #8a94a5;
+    font-size: 9px;
+  }
+
+  .composer {
+    margin-top: 11px;
+  }
+
+  .composer textarea {
+    min-height: 70px;
+  }
+
+  .composer-bottom {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 10px;
+    margin-top: 8px;
+  }
+
+  .composer-bottom span {
+    color: #929aa8;
+    font-size: 9px;
+  }
+
+  .notes-state {
+    padding: 20px;
+    border: 1px dashed #d9dfe8;
+    border-radius: 12px;
+    color: #818b9b;
+    text-align: center;
+    font-size: 10px;
+  }
+
+  .notes-list {
+    display: grid;
+    gap: 10px;
+  }
+
+  .note {
+    padding: 14px;
+    border: 1px solid #e1e6ed;
+    border-radius: 12px;
+    background: #fafbfc;
+  }
+
+  .note-top {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    align-items: flex-start;
+  }
+
+  .note h3 {
+    margin: 0;
+    color: #263148;
+    font-size: 14px;
+  }
+
+  .note-top span {
+    display: block;
+    margin-top: 4px;
+    color: #8a94a4;
+    font-size: 9px;
+  }
+
+  .note-top b {
+    padding: 5px 8px;
+    border-radius: 999px;
+    background: #edf8f1;
+    color: #347850;
+    font-size: 8px;
+    flex-shrink: 0;
+  }
+
+  .note > p {
+    margin: 11px 0 0;
+    padding-top: 11px;
+    border-top: 1px solid #e9edf2;
+    color: #596579;
+    font-size: 11px;
+    line-height: 1.6;
+    white-space: pre-wrap;
+  }
+
+  footer {
+    display: flex;
+    justify-content: space-between;
+    gap: 15px;
+    margin-top: 20px;
+    padding: 15px 2px 0;
+    border-top: 1px solid #e1e6ef;
+    color: #8b94a3;
+    font-size: 9px;
+  }
+
+  .state-card {
+    max-width: 430px;
+    margin: 100px auto;
+    padding: 35px;
+    border: 1px solid #e0e5ed;
+    border-radius: 18px;
+    background: #fff;
+    text-align: center;
+  }
+
+  .state-icon,
+  .error-icon {
+    width: 48px;
+    height: 48px;
+    margin: 0 auto 12px;
+    display: grid;
+    place-items: center;
+    border-radius: 14px;
+    font-weight: 800;
+  }
+
+  .state-icon {
+    background: #eef1ff;
+    color: #4d63d2;
+  }
+
+  .error-icon {
+    background: #fff0f0;
+    color: #b44747;
+  }
+
+  .state-card h2 {
+    margin: 0 0 6px;
+    color: #29344a;
+    font-size: 19px;
+  }
+
+  .state-card p {
+    margin: 0;
+    color: #788396;
+    font-size: 11px;
+  }
+
+  .state-card small {
+    display: block;
+    margin-top: 10px;
+    color: #929aa8;
+    font-size: 9px;
+    line-height: 1.5;
+  }
+
+  @media (max-width: 700px) {
+    .portal-page {
+      padding: 14px;
+    }
+
+    .hero {
+      flex-direction: column;
+      align-items: flex-start;
+      padding: 22px;
+    }
+
+    .hero-badge {
+      align-self: flex-start;
+    }
+
+    .grid {
+      grid-template-columns: 1fr;
+    }
+
+    label.full {
+      grid-column: auto;
+    }
+
+    .submit-area {
+      text-align: stretch;
+    }
+
+    .submit-area .primary-btn {
+      width: 100%;
+    }
+
+    .chat-status {
+      margin-left: 0;
+    }
+
+    .message .bubble {
+      max-width: 88%;
+    }
+
+    footer,
+    .topbar {
+      align-items: flex-start;
+    }
+
+    footer {
+      flex-direction: column;
+    }
+  }
+
+  @media (max-width: 480px) {
+    .topbar {
+      flex-direction: column;
+      padding-bottom: 12px;
+    }
+
+    .therapist {
+      align-items: flex-start;
+    }
+
+    .hero h1 {
+      font-size: 27px;
+    }
+
+    .card {
+      padding: 17px;
+    }
+
+    .section-head {
+      gap: 9px;
+    }
+  }
+`;
 export default ClientPortal;
