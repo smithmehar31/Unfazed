@@ -1,9 +1,4 @@
-import {
-  BrowserRouter,
-  Routes,
-  Route,
-  useNavigate,
-} from "react-router-dom";
+import { BrowserRouter, Routes, Route, useNavigate } from "react-router-dom";
 
 import Register from "../pages/auth/Register";
 import Login from "../pages/auth/Login";
@@ -164,8 +159,8 @@ function Home() {
 
               <p className="hero-text">
                 Unfazed brings scheduling, client management, clinical notes,
-                payments, communication and practice insights into one
-                focused workspace.
+                payments, communication and practice insights into one focused
+                workspace.
               </p>
 
               <div className="home-actions">
@@ -272,18 +267,9 @@ function AppRoutes() {
           <Route path="/schedule" element={<Schedule />} />
           <Route path="/clients" element={<Clients />} />
           <Route path="/notes" element={<Notes />} />
-          <Route
-            path="/therapist/chat/:clientId"
-            element={<Chat />}
-          />
-          <Route
-            path="/subscription"
-            element={<Subscription />}
-          />
-          <Route
-            path="/analytics"
-            element={<Analytics />}
-          />
+          <Route path="/therapist/chat/:clientId" element={<Chat />} />
+          <Route path="/subscription" element={<Subscription />} />
+          <Route path="/analytics" element={<Analytics />} />
         </Route>
 
         <Route path="/book/:slug" element={<BookSession />} />
@@ -564,46 +550,48 @@ const css = `
   }
 
   .feature-card {
-    min-height: 125px;
-    padding: 15px;
-    border: 1px solid #e1e7ef;
-    border-radius: 14px;
-    background: #fbfcfe;
-    transition:
-      transform .18s ease,
-      border-color .18s ease,
-      box-shadow .18s ease;
-  }
+  min-height: 125px;
+  padding: 15px;
+  border: 1px solid #e1e7ef;
+  border-radius: 14px;
+  background: #fbfcfe;
+  text-align: center;
+  transition:
+    transform .18s ease,
+    border-color .18s ease,
+    box-shadow .18s ease;
+}
 
-  .feature-card:hover {
-    transform: translateY(-2px);
-    border-color: #ccd5ea;
-    box-shadow: 0 9px 20px rgba(35, 47, 79, .06);
-  }
+.feature-card:hover {
+  transform: translateY(-2px);
+  border-color: #ccd5ea;
+  box-shadow: 0 9px 20px rgba(35, 47, 79, .06);
+}
 
-  .feature-icon {
-    width: 36px;
-    height: 36px;
-    display: grid;
-    place-items: center;
-    border-radius: 10px;
-    background: #eef1ff;
-    color: #5268d0;
-  }
+.feature-icon {
+  width: 36px;
+  height: 36px;
+  display: grid;
+  place-items: center;
+  margin: 0 auto;
+  border-radius: 10px;
+  background: #eef1ff;
+  color: #5268d0;
+}
 
-  .feature-card strong {
-    display: block;
-    margin-top: 12px;
-    color: #2a354a;
-    font-size: 11px;
-  }
+.feature-card strong {
+  display: block;
+  margin-top: 11px;
+  color: #2a354a;
+  font-size: 11px;
+}
 
-  .feature-card p {
-    margin: 5px 0 0;
-    color: #8791a1;
-    font-size: 9px;
-    line-height: 1.5;
-  }
+.feature-card p {
+  margin: 5px 0 0;
+  color: #8791a1;
+  font-size: 9px;
+  line-height: 1.5;
+}
 
   .workspace-note {
     display: flex;
