@@ -24,8 +24,108 @@ import Payment from "../pages/client/Payment";
 
 import ProtectedRoute from "./ProtectedRoute";
 
+function FeatureIcon({ type }) {
+  const props = {
+    width: 18,
+    height: 18,
+    viewBox: "0 0 24 24",
+    fill: "none",
+    stroke: "currentColor",
+    strokeWidth: 1.8,
+    strokeLinecap: "round",
+    strokeLinejoin: "round",
+  };
+
+  if (type === "schedule") {
+    return (
+      <svg {...props}>
+        <rect x="3" y="4.5" width="18" height="17" rx="3" />
+        <path d="M8 2.5v4M16 2.5v4M3 9.5h18" />
+        <path d="M8 13h.01M12 13h.01M16 13h.01M8 17h.01M12 17h.01" />
+      </svg>
+    );
+  }
+
+  if (type === "clients") {
+    return (
+      <svg {...props}>
+        <circle cx="9" cy="8" r="3" />
+        <path d="M3.5 20c.6-3.1 2.5-5 5.5-5s4.9 1.9 5.5 5" />
+        <path d="M16 5.5a2.7 2.7 0 0 1 0 5.2M17 15c2.2.4 3.6 2 4 4.5" />
+      </svg>
+    );
+  }
+
+  if (type === "notes") {
+    return (
+      <svg {...props}>
+        <path d="M6 3.5h9l4 4V20a1.5 1.5 0 0 1-1.5 1.5h-11A1.5 1.5 0 0 1 5 20V5A1.5 1.5 0 0 1 6.5 3.5Z" />
+        <path d="M14 3.5V8h5M8.5 12h7M8.5 16h5" />
+      </svg>
+    );
+  }
+
+  if (type === "payments") {
+    return (
+      <svg {...props}>
+        <rect x="3" y="5" width="18" height="14" rx="2.5" />
+        <path d="M3 9h18M7 14h4M7 16.5h2" />
+      </svg>
+    );
+  }
+
+  if (type === "communication") {
+    return (
+      <svg {...props}>
+        <path d="M20 11.5a7 7 0 0 1-7 7H8l-4 2 .9-4.1A7 7 0 1 1 20 11.5Z" />
+        <path d="M8 11.5h.01M12 11.5h.01M16 11.5h.01" />
+      </svg>
+    );
+  }
+
+  return (
+    <svg {...props}>
+      <path d="M4 19.5V14M10 19.5V10M16 19.5V6M22 19.5V3" />
+      <path d="M4 10l5-4 5 2 6-5" />
+    </svg>
+  );
+}
+
 function Home() {
   const navigate = useNavigate();
+
+  const features = [
+    {
+      type: "schedule",
+      title: "Scheduling",
+      text: "Manage availability and sessions.",
+    },
+    {
+      type: "clients",
+      title: "Clients",
+      text: "Keep profiles and intake organized.",
+    },
+    {
+      type: "notes",
+      title: "Clinical Notes",
+      text: "Create private or shared notes.",
+    },
+    {
+      type: "payments",
+      title: "Payments",
+      text: "Manage packages and transactions.",
+    },
+    {
+      type: "communication",
+      title: "Communication",
+      text: "Stay connected with clients.",
+    },
+    {
+      type: "analytics",
+      title: "Analytics",
+      text: "Understand your practice activity.",
+    },
+  ];
 
   return (
     <>
@@ -37,33 +137,35 @@ function Home() {
             <div className="brand">
               <div className="brand-mark">U</div>
 
-              <div>
+              <div className="brand-copy">
                 <strong>Unfazed</strong>
                 <span>Therapist practice management</span>
               </div>
             </div>
 
-            <div className="top-link">
+            <div className="top-status">
+              <span className="status-dot" />
               Professional workspace
             </div>
           </header>
 
-          <main className="home-grid">
-            <section className="home-intro">
+          <main className="hero">
+            <section className="hero-left">
               <div className="eyebrow">
+                <span />
                 THERAPIST PRACTICE PLATFORM
               </div>
 
               <h1>
                 Everything your
                 <br />
-                practice needs.
+                <em>practice needs.</em>
               </h1>
 
-              <p>
-                Unfazed brings scheduling, clients, clinical notes,
-                payments, communication and practice insights into
-                one focused workspace.
+              <p className="hero-text">
+                Unfazed brings scheduling, client management, clinical notes,
+                payments, communication and practice insights into one
+                focused workspace.
               </p>
 
               <div className="home-actions">
@@ -71,7 +173,8 @@ function Home() {
                   className="primary-btn"
                   onClick={() => navigate("/login")}
                 >
-                  Therapist Login →
+                  Therapist Login
+                  <span>→</span>
                 </button>
 
                 <button
@@ -81,60 +184,65 @@ function Home() {
                   Create Account
                 </button>
               </div>
-            </section>
 
-            <section className="home-card">
-              <div className="card-kicker">UNFAZED WORKSPACE</div>
-
-              <h2>Run your practice with clarity.</h2>
-
-              <div className="feature-grid">
-                <div>
-                  <span>◷</span>
-                  <strong>Scheduling</strong>
-                  <p>Manage availability and sessions.</p>
+              <div className="trust-row">
+                <div className="trust-item">
+                  <b>06</b>
+                  <span>Core tools</span>
                 </div>
 
-                <div>
-                  <span>◉</span>
-                  <strong>Clients</strong>
-                  <p>Keep profiles and intake organized.</p>
+                <div className="trust-divider" />
+
+                <div className="trust-item">
+                  <b>01</b>
+                  <span>Focused workspace</span>
                 </div>
 
-                <div>
-                  <span>✎</span>
-                  <strong>Clinical Notes</strong>
-                  <p>Create private or shared notes.</p>
-                </div>
+                <div className="trust-divider" />
 
-                <div>
-                  <span>₹</span>
-                  <strong>Payments</strong>
-                  <p>Manage packages and transactions.</p>
-                </div>
-
-                <div>
-                  <span>💬</span>
-                  <strong>Communication</strong>
-                  <p>Stay connected with clients.</p>
-                </div>
-
-                <div>
-                  <span>↗</span>
-                  <strong>Analytics</strong>
-                  <p>Understand your practice activity.</p>
+                <div className="trust-item">
+                  <b>∞</b>
+                  <span>Practice flexibility</span>
                 </div>
               </div>
+            </section>
 
-              <div className="home-note">
-                <span>✓</span>
+            <section className="workspace-card">
+              <div className="workspace-head">
+                <div>
+                  <div className="card-kicker">UNFAZED WORKSPACE</div>
+                  <h2>Run your practice with clarity.</h2>
+                </div>
+
+                <div className="workspace-badge">LIVE</div>
+              </div>
+
+              <div className="feature-grid">
+                {features.map((feature) => (
+                  <div className="feature-card" key={feature.title}>
+                    <span className="feature-icon">
+                      <FeatureIcon type={feature.type} />
+                    </span>
+
+                    <strong>{feature.title}</strong>
+
+                    <p>{feature.text}</p>
+                  </div>
+                ))}
+              </div>
+
+              <div className="workspace-note">
+                <span className="note-check">✓</span>
+
                 <div>
                   <strong>One focused workspace</strong>
                   <p>
-                    Designed for therapists and their day-to-day
-                    practice workflow.
+                    Designed for therapists and their day-to-day practice
+                    workflow.
                   </p>
                 </div>
+
+                <span className="note-arrow">↗</span>
               </div>
             </section>
           </main>
@@ -159,66 +267,29 @@ function AppRoutes() {
         <Route path="/register" element={<Register />} />
 
         <Route element={<ProtectedRoute />}>
-          <Route
-            path="/dashboard"
-            element={<Dashboard />}
-          />
-
-          <Route
-            path="/profile"
-            element={<Profile />}
-          />
-
-          <Route
-            path="/schedule"
-            element={<Schedule />}
-          />
-
-          <Route
-            path="/clients"
-            element={<Clients />}
-          />
-
-          <Route
-            path="/notes"
-            element={<Notes />}
-          />
-
+          <Route path="/dashboard" element={<Dashboard />} />
+          <Route path="/profile" element={<Profile />} />
+          <Route path="/schedule" element={<Schedule />} />
+          <Route path="/clients" element={<Clients />} />
+          <Route path="/notes" element={<Notes />} />
           <Route
             path="/therapist/chat/:clientId"
             element={<Chat />}
           />
-
           <Route
             path="/subscription"
             element={<Subscription />}
           />
-
           <Route
             path="/analytics"
             element={<Analytics />}
           />
         </Route>
 
-        <Route
-          path="/book/:slug"
-          element={<BookSession />}
-        />
-
-        <Route
-          path="/portal"
-          element={<ClientPortal />}
-        />
-
-        <Route
-          path="/payment"
-          element={<Payment />}
-        />
-
-        <Route
-          path="/:slug"
-          element={<PublicProfile />}
-        />
+        <Route path="/book/:slug" element={<BookSession />} />
+        <Route path="/portal" element={<ClientPortal />} />
+        <Route path="/payment" element={<Payment />} />
+        <Route path="/:slug" element={<PublicProfile />} />
       </Routes>
     </BrowserRouter>
   );
@@ -227,22 +298,27 @@ function AppRoutes() {
 const css = `
   .home-page {
     min-height: 100vh;
+    padding: 24px;
     background:
       radial-gradient(
-        circle at 10% 10%,
-        rgba(77,99,210,.11),
+        circle at 12% 15%,
+        rgba(91, 109, 220, 0.14),
         transparent 30%
       ),
       radial-gradient(
-        circle at 90% 90%,
-        rgba(77,99,210,.09),
+        circle at 90% 82%,
+        rgba(104, 123, 224, 0.1),
         transparent 28%
       ),
-      #f4f6fa;
-    color: #192338;
-    padding: 22px;
-    font-family: Inter, system-ui, -apple-system,
-      BlinkMacSystemFont, "Segoe UI", sans-serif;
+      linear-gradient(135deg, #f7f9fc 0%, #eef2f9 100%);
+    color: #182338;
+    font-family:
+      Inter,
+      system-ui,
+      -apple-system,
+      BlinkMacSystemFont,
+      "Segoe UI",
+      sans-serif;
   }
 
   .home-page * {
@@ -250,208 +326,325 @@ const css = `
   }
 
   .home-shell {
-    max-width: 1120px;
-    min-height: calc(100vh - 44px);
+    width: min(1180px, 100%);
+    min-height: calc(100vh - 48px);
     margin: 0 auto;
     display: flex;
     flex-direction: column;
   }
 
   .home-topbar {
-    min-height: 64px;
     display: flex;
     justify-content: space-between;
     align-items: center;
     gap: 20px;
-    padding-bottom: 17px;
-    border-bottom: 1px solid #e0e5ed;
+    padding: 4px 2px 18px;
+    border-bottom: 1px solid #dfe5ee;
   }
 
   .brand {
     display: flex;
     align-items: center;
-    gap: 10px;
+    gap: 12px;
   }
 
   .brand-mark {
-    width: 40px;
-    height: 40px;
+    width: 44px;
+    height: 44px;
     display: grid;
     place-items: center;
-    border-radius: 12px;
-    background: #4d63d2;
+    border-radius: 13px;
+    background: linear-gradient(145deg, #5870df, #465dcc);
     color: #fff;
+    font-size: 16px;
     font-weight: 800;
-    box-shadow: 0 8px 18px rgba(77,99,210,.18);
+    box-shadow: 0 10px 22px rgba(76, 97, 206, 0.22);
   }
 
-  .brand strong {
+  .brand-copy strong {
     display: block;
-    color: #1d283c;
+    color: #202b40;
     font-size: 15px;
+    letter-spacing: -.2px;
   }
 
-  .brand span {
+  .brand-copy span {
     display: block;
-    margin-top: 2px;
-    color: #7f899a;
+    margin-top: 3px;
+    color: #818c9f;
     font-size: 9px;
   }
 
-  .top-link {
-    color: #7f899a;
+  .top-status {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    color: #7f8999;
     font-size: 10px;
   }
 
-  .home-grid {
+  .status-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: #54aa7a;
+    box-shadow: 0 0 0 4px rgba(84, 170, 122, 0.1);
+  }
+
+  .hero {
     flex: 1;
     display: grid;
-    grid-template-columns: 1fr .9fr;
+    grid-template-columns: minmax(0, 1.04fr) minmax(420px, .96fr);
     align-items: center;
-    gap: 65px;
-    padding: 60px 0;
+    gap: 70px;
+    padding: 68px 0 58px;
   }
 
-  .eyebrow,
-  .card-kicker {
-    color: #748097;
+  .hero-left {
+    padding-left: 6px;
+  }
+
+  .eyebrow {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: #68758b;
     font-size: 9px;
     font-weight: 800;
-    letter-spacing: 1.7px;
+    letter-spacing: 1.8px;
   }
 
-  .home-intro h1 {
-    margin: 10px 0 0;
-    color: #182238;
-    font-size: clamp(45px, 6vw, 67px);
-    line-height: .98;
-    letter-spacing: -1.8px;
+  .eyebrow span {
+    width: 18px;
+    height: 1px;
+    background: #5970d8;
   }
 
-  .home-intro > p {
-    max-width: 560px;
-    margin: 20px 0 0;
-    color: #69758a;
+  .hero h1 {
+    margin: 14px 0 0;
+    color: #172138;
+    font-size: clamp(48px, 6vw, 74px);
+    line-height: .95;
+    letter-spacing: -3px;
+    font-weight: 750;
+  }
+
+  .hero h1 em {
+    color: #5268d1;
+    font-style: normal;
+  }
+
+  .hero-text {
+    max-width: 575px;
+    margin: 23px 0 0;
+    color: #6d798d;
     font-size: 14px;
     line-height: 1.8;
   }
 
   .home-actions {
     display: flex;
-    gap: 10px;
     flex-wrap: wrap;
-    margin-top: 25px;
+    gap: 10px;
+    margin-top: 28px;
   }
 
   .primary-btn,
   .secondary-btn {
-    border-radius: 10px;
-    padding: 11px 15px;
+    border-radius: 11px;
+    padding: 12px 17px;
     font-size: 11px;
     font-weight: 800;
     cursor: pointer;
+    transition: transform .18s ease, box-shadow .18s ease;
   }
 
   .primary-btn {
-    border: 1px solid #4d63d2;
-    background: #4d63d2;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    border: 1px solid #5067d4;
+    background: linear-gradient(135deg, #5870de, #475ecb);
     color: #fff;
-    box-shadow: 0 8px 18px rgba(77,99,210,.16);
+    box-shadow: 0 10px 22px rgba(77, 99, 210, .22);
+  }
+
+  .primary-btn span {
+    font-size: 15px;
   }
 
   .secondary-btn {
     border: 1px solid #d5dce7;
-    background: #fff;
-    color: #506078;
+    background: rgba(255,255,255,.9);
+    color: #536178;
   }
 
-  .home-card {
-    padding: 26px;
-    border: 1px solid #dfe5ee;
-    border-radius: 21px;
-    background: rgba(255,255,255,.96);
-    box-shadow: 0 18px 42px rgba(29,39,67,.08);
+  .primary-btn:hover,
+  .secondary-btn:hover {
+    transform: translateY(-1px);
   }
 
-  .home-card h2 {
+  .trust-row {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    margin-top: 38px;
+  }
+
+  .trust-item {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+  }
+
+  .trust-item b {
+    color: #2b3851;
+    font-size: 14px;
+  }
+
+  .trust-item span {
+    color: #8a94a5;
+    font-size: 8px;
+  }
+
+  .trust-divider {
+    width: 1px;
+    height: 28px;
+    background: #dbe1ea;
+  }
+
+  .workspace-card {
+    padding: 28px;
+    border: 1px solid #dce3ee;
+    border-radius: 24px;
+    background: rgba(255,255,255,.95);
+    box-shadow:
+      0 24px 55px rgba(32, 44, 77, .09),
+      0 3px 10px rgba(32, 44, 77, .03);
+  }
+
+  .workspace-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 15px;
+  }
+
+  .card-kicker {
+    color: #7a879c;
+    font-size: 8px;
+    font-weight: 800;
+    letter-spacing: 1.8px;
+  }
+
+  .workspace-card h2 {
     margin: 9px 0 0;
-    color: #202b40;
-    font-size: 25px;
-    letter-spacing: -.4px;
+    color: #202c42;
+    font-size: 24px;
+    line-height: 1.2;
+    letter-spacing: -.5px;
+  }
+
+  .workspace-badge {
+    padding: 5px 8px;
+    border: 1px solid #d9ebdf;
+    border-radius: 99px;
+    background: #f0faf4;
+    color: #498161;
+    font-size: 7px;
+    font-weight: 800;
+    letter-spacing: 1px;
   }
 
   .feature-grid {
     display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 9px;
-    margin-top: 21px;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 11px;
+    margin-top: 22px;
   }
 
-  .feature-grid > div {
-    padding: 13px;
-    border: 1px solid #e5e9ef;
-    border-radius: 12px;
-    background: #fafbfd;
+  .feature-card {
+    min-height: 125px;
+    padding: 15px;
+    border: 1px solid #e1e7ef;
+    border-radius: 14px;
+    background: #fbfcfe;
+    transition:
+      transform .18s ease,
+      border-color .18s ease,
+      box-shadow .18s ease;
   }
 
-  .feature-grid span {
-    width: 29px;
-    height: 29px;
+  .feature-card:hover {
+    transform: translateY(-2px);
+    border-color: #ccd5ea;
+    box-shadow: 0 9px 20px rgba(35, 47, 79, .06);
+  }
+
+  .feature-icon {
+    width: 36px;
+    height: 36px;
     display: grid;
     place-items: center;
-    border-radius: 9px;
+    border-radius: 10px;
     background: #eef1ff;
-    color: #5065cf;
-    font-size: 12px;
-    font-weight: 800;
+    color: #5268d0;
   }
 
-  .feature-grid strong {
+  .feature-card strong {
     display: block;
-    margin-top: 9px;
-    color: #2b364b;
+    margin-top: 12px;
+    color: #2a354a;
     font-size: 11px;
   }
 
-  .feature-grid p {
-    margin: 3px 0 0;
-    color: #818b9c;
+  .feature-card p {
+    margin: 5px 0 0;
+    color: #8791a1;
     font-size: 9px;
-    line-height: 1.45;
+    line-height: 1.5;
   }
 
-  .home-note {
+  .workspace-note {
     display: flex;
-    gap: 10px;
+    align-items: center;
+    gap: 11px;
     margin-top: 14px;
-    padding: 13px;
-    border-radius: 12px;
-    background: #f2f5ff;
+    padding: 14px;
+    border: 1px solid #e0e7fb;
+    border-radius: 14px;
+    background: linear-gradient(135deg, #f4f6ff, #eef2ff);
   }
 
-  .home-note > span {
-    width: 27px;
-    height: 27px;
+  .note-check {
+    width: 30px;
+    height: 30px;
     display: grid;
     place-items: center;
     flex-shrink: 0;
     border-radius: 9px;
     background: #dfe5ff;
-    color: #5064cc;
+    color: #5066cf;
+    font-size: 11px;
     font-weight: 800;
+  }
+
+  .workspace-note strong {
+    color: #334058;
     font-size: 10px;
   }
 
-  .home-note strong {
-    color: #344057;
-    font-size: 10px;
-  }
-
-  .home-note p {
+  .workspace-note p {
     margin: 3px 0 0;
-    color: #7d8798;
-    font-size: 9px;
-    line-height: 1.45;
+    color: #7e899d;
+    font-size: 8px;
+    line-height: 1.5;
+  }
+
+  .note-arrow {
+    margin-left: auto;
+    color: #8190b7;
+    font-size: 14px;
   }
 
   .footer {
@@ -459,55 +652,76 @@ const css = `
     justify-content: space-between;
     gap: 15px;
     padding: 16px 2px 0;
-    border-top: 1px solid #e1e6ef;
+    border-top: 1px solid #dfe5ee;
     color: #8a94a5;
     font-size: 9px;
   }
 
-  @media (max-width: 800px) {
+  @media (max-width: 900px) {
+    .hero {
+      grid-template-columns: 1fr;
+      gap: 40px;
+      padding: 48px 0;
+    }
+
+    .hero-left {
+      padding-left: 0;
+    }
+
+    .workspace-card {
+      max-width: 650px;
+    }
+  }
+
+  @media (max-width: 560px) {
     .home-page {
       padding: 15px;
     }
 
-    .home-grid {
-      grid-template-columns: 1fr;
-      gap: 35px;
-      padding: 42px 0;
-    }
-
-    .home-intro h1 {
-      font-size: 46px;
-    }
-
-    .home-card {
-      padding: 21px;
-    }
-
-    .footer {
-      flex-direction: column;
-    }
-  }
-
-  @media (max-width: 520px) {
-    .home-topbar {
-      align-items: flex-start;
-    }
-
-    .top-link {
+    .top-status {
       display: none;
     }
 
-    .feature-grid {
-      grid-template-columns: 1fr;
+    .hero {
+      padding: 38px 0;
+    }
+
+    .hero h1 {
+      font-size: 46px;
+      letter-spacing: -2px;
+    }
+
+    .hero-text {
+      font-size: 13px;
     }
 
     .home-actions {
       flex-direction: column;
     }
 
-    .home-actions button {
+    .primary-btn,
+    .secondary-btn {
       width: 100%;
+      justify-content: center;
+    }
+
+    .trust-row {
+      gap: 12px;
+    }
+
+    .workspace-card {
+      padding: 20px;
+      border-radius: 19px;
+    }
+
+    .feature-grid {
+      grid-template-columns: 1fr;
+    }
+
+    .footer {
+      flex-direction: column;
     }
   }
 `;
+
 export default AppRoutes;
